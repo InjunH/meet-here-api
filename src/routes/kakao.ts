@@ -90,6 +90,120 @@ const kakaoClient = axios.create({
   timeout: 10000
 });
 
+/**
+ * @swagger
+ * /api/v1/kakao/search/address:
+ *   get:
+ *     summary: 주소 검색 (카카오 API)
+ *     description: 카카오 Maps API를 사용하여 주소를 검색합니다.
+ *     tags: [Kakao]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         description: 검색할 주소 문자열
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 200
+ *           example: "서울특별시 강남구 강남대로"
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         description: 결과 페이지 번호
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 45
+ *           default: 1
+ *           example: 1
+ *       - in: query
+ *         name: size
+ *         required: false
+ *         description: 페이지당 결과 수
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 30
+ *           default: 10
+ *           example: 10
+ *     responses:
+ *       200:
+ *         description: 주소 검색 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     addresses:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           address:
+ *                             type: string
+ *                             description: 지번 주소
+ *                             example: "서울 강남구 역삼동 123-45"
+ *                           roadAddress:
+ *                             type: string
+ *                             description: 도로명 주소
+ *                             example: "서울 강남구 강남대로 123"
+ *                           coordinates:
+ *                             $ref: '#/components/schemas/Location'
+ *                           region:
+ *                             type: object
+ *                             properties:
+ *                               depth1:
+ *                                 type: string
+ *                                 example: "서울"
+ *                               depth2:
+ *                                 type: string
+ *                                 example: "강남구"
+ *                               depth3:
+ *                                 type: string
+ *                                 example: "역삼동"
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         size:
+ *                           type: integer
+ *                         hasMore:
+ *                           type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: "Address search completed successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         description: 잘못된 카카오 API 키
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: API 요청 한도 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: 카카오 API 설정되지 않음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/kakao/search/address - Search address
 router.get('/search/address', kakaoApiLimiter, asyncHandler(async (req: Request, res: Response) => {
   if (!kakaoApiKey) {
@@ -171,6 +285,177 @@ router.get('/search/address', kakaoApiLimiter, asyncHandler(async (req: Request,
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/kakao/search/keyword:
+ *   get:
+ *     summary: 키워드로 장소 검색 (카카오 API)
+ *     description: 카카오 Maps API를 사용하여 키워드로 장소를 검색합니다.
+ *     tags: [Kakao]
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         description: 검색할 키워드
+ *         schema:
+ *           type: string
+ *           minLength: 1
+ *           maxLength: 200
+ *           example: "스타벅스"
+ *       - in: query
+ *         name: x
+ *         required: false
+ *         description: 검색 중심점 경도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -180
+ *           maximum: 180
+ *           example: 127.0276
+ *       - in: query
+ *         name: y
+ *         required: false
+ *         description: 검색 중심점 위도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -90
+ *           maximum: 90
+ *           example: 37.4979
+ *       - in: query
+ *         name: radius
+ *         required: false
+ *         description: 검색 반경 (미터)
+ *         schema:
+ *           type: integer
+ *           minimum: 0
+ *           maximum: 20000
+ *           default: 5000
+ *           example: 5000
+ *       - in: query
+ *         name: category_group_code
+ *         required: false
+ *         description: "카테고리 그룹 코드 (예: CE7=카페, FD6=음식점)"
+ *         schema:
+ *           type: string
+ *           example: "CE7"
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         description: 결과 페이지 번호
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 45
+ *           default: 1
+ *           example: 1
+ *       - in: query
+ *         name: size
+ *         required: false
+ *         description: 페이지당 결과 수
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 15
+ *           default: 15
+ *           example: 15
+ *     responses:
+ *       200:
+ *         description: 키워드 검색 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     places:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: string
+ *                             description: 카카오 장소 ID
+ *                             example: "26853371"
+ *                           name:
+ *                             type: string
+ *                             description: 장소명
+ *                             example: "스타벅스 강남역점"
+ *                           category:
+ *                             type: object
+ *                             properties:
+ *                               name:
+ *                                 type: string
+ *                                 example: "음식점 > 카페 > 커피전문점"
+ *                               groupCode:
+ *                                 type: string
+ *                                 example: "CE7"
+ *                               groupName:
+ *                                 type: string
+ *                                 example: "카페"
+ *                           address:
+ *                             type: string
+ *                             description: 지번 주소
+ *                             example: "서울 강남구 역삼동 123-45"
+ *                           roadAddress:
+ *                             type: string
+ *                             description: 도로명 주소
+ *                             example: "서울 강남구 강남대로 123"
+ *                           coordinates:
+ *                             $ref: '#/components/schemas/Location'
+ *                           phone:
+ *                             type: string
+ *                             description: 전화번호
+ *                             example: "02-1522-3232"
+ *                           url:
+ *                             type: string
+ *                             description: 카카오맵 URL
+ *                             example: "http://place.map.kakao.com/26853371"
+ *                           distance:
+ *                             type: integer
+ *                             description: 중심점으로부터 거리 (미터)
+ *                             example: 150
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         size:
+ *                           type: integer
+ *                         hasMore:
+ *                           type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: "Keyword search completed successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         description: 잘못된 카카오 API 키
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: API 요청 한도 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: 카카오 API 설정되지 않음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/kakao/search/keyword - Search places by keyword
 router.get('/search/keyword', kakaoApiLimiter, asyncHandler(async (req: Request, res: Response) => {
   if (!kakaoApiKey) {
@@ -270,6 +555,101 @@ router.get('/search/keyword', kakaoApiLimiter, asyncHandler(async (req: Request,
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/kakao/coord2address:
+ *   get:
+ *     summary: 좌표를 주소로 변환 (역지오코딩)
+ *     description: 카카오 Maps API를 사용하여 좌표를 주소로 변환합니다.
+ *     tags: [Kakao]
+ *     parameters:
+ *       - in: query
+ *         name: x
+ *         required: true
+ *         description: 변환할 경도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -180
+ *           maximum: 180
+ *           example: 127.0276
+ *       - in: query
+ *         name: y
+ *         required: true
+ *         description: 변환할 위도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -90
+ *           maximum: 90
+ *           example: 37.4979
+ *     responses:
+ *       200:
+ *         description: 좌표 변환 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     address:
+ *                       type: string
+ *                       description: 지번 주소
+ *                       example: "서울 강남구 역삼동 123-45"
+ *                     roadAddress:
+ *                       type: string
+ *                       description: 도로명 주소
+ *                       example: "서울 강남구 강남대로 123"
+ *                     coordinates:
+ *                       $ref: '#/components/schemas/Location'
+ *                     region:
+ *                       type: object
+ *                       properties:
+ *                         depth1:
+ *                           type: string
+ *                           example: "서울"
+ *                         depth2:
+ *                           type: string
+ *                           example: "강남구"
+ *                         depth3:
+ *                           type: string
+ *                           example: "역삼동"
+ *                 message:
+ *                   type: string
+ *                   example: "Reverse geocoding completed successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       401:
+ *         description: 잘못된 카카오 API 키
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 좌표에 해당하는 주소를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       429:
+ *         description: API 요청 한도 초과
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       503:
+ *         description: 카카오 API 설정되지 않음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/kakao/coord2address - Reverse geocoding (coordinates to address)
 router.get('/coord2address', kakaoApiLimiter, asyncHandler(async (req: Request, res: Response) => {
   if (!kakaoApiKey) {
@@ -345,6 +725,48 @@ router.get('/coord2address', kakaoApiLimiter, asyncHandler(async (req: Request, 
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/kakao/category-codes:
+ *   get:
+ *     summary: 카카오 카테고리 코드 목록
+ *     description: 카카오 Maps API에서 사용되는 카테고리 그룹 코드 목록을 반환합니다.
+ *     tags: [Kakao]
+ *     responses:
+ *       200:
+ *         description: 카테고리 코드 목록 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     categoryCodes:
+ *                       type: object
+ *                       description: 카테고리 코드와 설명의 매핑
+ *                       additionalProperties:
+ *                         type: string
+ *                       example:
+ *                         MT1: "대형마트"
+ *                         CS2: "편의점"
+ *                         CE7: "카페"
+ *                         FD6: "음식점"
+ *                         CT1: "문화시설"
+ *                     description:
+ *                       type: string
+ *                       example: "Kakao Maps API category group codes for place search"
+ *                 message:
+ *                   type: string
+ *                   example: "Category codes retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 // GET /api/v1/kakao/category-codes - Get Kakao category codes reference
 router.get('/category-codes', asyncHandler(async (req: Request, res: Response) => {
   const categoryCodes = {

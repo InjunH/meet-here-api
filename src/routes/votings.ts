@@ -56,6 +56,90 @@ interface Voting {
   totalVotes: number;
 }
 
+/**
+ * @swagger
+ * /api/v1/votings:
+ *   post:
+ *     summary: 새 투표 생성
+ *     description: 미팅에 대한 장소 투표를 생성합니다.
+ *     tags: [Votings]
+ *     security:
+ *       - DeviceIdAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - meetingId
+ *               - candidates
+ *             properties:
+ *               meetingId:
+ *                 type: string
+ *                 pattern: '^meet_'
+ *                 description: 미팅 세션 ID
+ *                 example: "meet_1634567890_abc123def"
+ *               candidates:
+ *                 type: array
+ *                 minItems: 2
+ *                 maxItems: 5
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - placeId
+ *                     - name
+ *                     - category
+ *                     - distance
+ *                   properties:
+ *                     placeId:
+ *                       type: string
+ *                       description: 장소 ID
+ *                       example: "place_cafe_1"
+ *                     name:
+ *                       type: string
+ *                       description: 장소명
+ *                       example: "스타벅스 신촌점"
+ *                     category:
+ *                       type: string
+ *                       description: 장소 카테고리
+ *                       example: "카페"
+ *                     distance:
+ *                       type: number
+ *                       description: 중심점으로부터 거리 (미터)
+ *                       example: 150
+ *     responses:
+ *       201:
+ *         description: 투표 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Vote'
+ *                 message:
+ *                   type: string
+ *                   example: "Voting created successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 요청 데이터
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: 서버 내부 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/v1/votings - Create new voting
 router.post('/', validateDeviceId, asyncHandler(async (req: Request, res: Response) => {
   const body = CreateVotingSchema.parse(req.body);
@@ -111,6 +195,47 @@ router.post('/', validateDeviceId, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/votings/{id}:
+ *   get:
+ *     summary: 투표 상세 정보 조회
+ *     description: 투표 ID를 사용하여 투표 상세 정보를 조회합니다.
+ *     tags: [Votings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 투표 ID
+ *         schema:
+ *           type: string
+ *           example: "vote_1634567890_abc123def"
+ *     responses:
+ *       200:
+ *         description: 투표 정보 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Vote'
+ *                 message:
+ *                   type: string
+ *                   example: "Voting details retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: 투표를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/votings/:id - Get voting details
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = GetVotingSchema.parse({ id: req.params.id });
@@ -179,6 +304,87 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/votings/{id}/vote:
+ *   post:
+ *     summary: 투표하기
+ *     description: 특정 장소에 투표합니다.
+ *     tags: [Votings]
+ *     security:
+ *       - DeviceIdAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 투표 ID
+ *         schema:
+ *           type: string
+ *           example: "vote_1634567890_abc123def"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - placeId
+ *             properties:
+ *               placeId:
+ *                 type: string
+ *                 description: 선택한 장소 ID
+ *                 example: "place_cafe_1"
+ *               participantName:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 50
+ *                 description: 투표자 이름 (선택사항)
+ *                 example: "홍길동"
+ *     responses:
+ *       201:
+ *         description: 투표 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     vote:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         placeId:
+ *                           type: string
+ *                         participantName:
+ *                           type: string
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                     message:
+ *                       type: string
+ *                       example: "Vote cast successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 요청 또는 투표 종료
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: 이미 투표함
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/v1/votings/:id/vote - Cast a vote
 router.post('/:id/vote', validateDeviceId, asyncHandler(async (req: Request, res: Response) => {
   const votingId = req.params.id;
@@ -249,6 +455,88 @@ router.post('/:id/vote', validateDeviceId, asyncHandler(async (req: Request, res
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/votings/{id}/results:
+ *   get:
+ *     summary: 투표 결과 조회
+ *     description: 실시간 투표 결과를 조회합니다.
+ *     tags: [Votings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 투표 ID
+ *         schema:
+ *           type: string
+ *           example: "vote_1634567890_abc123def"
+ *     responses:
+ *       200:
+ *         description: 투표 결과 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     votingId:
+ *                       type: string
+ *                       example: "vote_1634567890_abc123def"
+ *                     status:
+ *                       type: string
+ *                       enum: [OPEN, CLOSED, COMPLETED]
+ *                       example: "OPEN"
+ *                     totalVotes:
+ *                       type: integer
+ *                       example: 3
+ *                     results:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           placeId:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           category:
+ *                             type: string
+ *                           voteCount:
+ *                             type: integer
+ *                           percentage:
+ *                             type: number
+ *                             format: float
+ *                           isWinner:
+ *                             type: boolean
+ *                     winner:
+ *                       type: object
+ *                       properties:
+ *                         placeId:
+ *                           type: string
+ *                         name:
+ *                           type: string
+ *                         voteCount:
+ *                           type: integer
+ *                     updatedAt:
+ *                       type: string
+ *                       format: date-time
+ *                 message:
+ *                   type: string
+ *                   example: "Voting results retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: 투표 결과를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/votings/:id/results - Get voting results
 router.get('/:id/results', asyncHandler(async (req: Request, res: Response) => {
   const votingId = req.params.id;
@@ -306,6 +594,72 @@ router.get('/:id/results', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/votings/{id}/close:
+ *   post:
+ *     summary: 투표 종료
+ *     description: 진행 중인 투표를 종료하고 최종 결과를 확정합니다.
+ *     tags: [Votings]
+ *     security:
+ *       - DeviceIdAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 투표 ID
+ *         schema:
+ *           type: string
+ *           example: "vote_1634567890_abc123def"
+ *     responses:
+ *       200:
+ *         description: 투표 종료 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     votingId:
+ *                       type: string
+ *                       example: "vote_1634567890_abc123def"
+ *                     status:
+ *                       type: string
+ *                       enum: [CLOSED]
+ *                       example: "CLOSED"
+ *                     closedAt:
+ *                       type: string
+ *                       format: date-time
+ *                 message:
+ *                   type: string
+ *                   example: "Voting closed successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 요청
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: 권한 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: 서버 내부 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/v1/votings/:id/close - Close voting (admin action)
 router.post('/:id/close', validateDeviceId, asyncHandler(async (req: Request, res: Response) => {
   const votingId = req.params.id;

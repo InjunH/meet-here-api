@@ -63,6 +63,119 @@ interface SearchPlacesResponse {
   };
 }
 
+/**
+ * @swagger
+ * /api/v1/places/search:
+ *   get:
+ *     summary: 위치 기반 장소 검색
+ *     description: 좌표 중심으로 반경 내의 장소들을 카테고리별로 검색합니다.
+ *     tags: [Places]
+ *     parameters:
+ *       - in: query
+ *         name: lat
+ *         required: true
+ *         description: 검색 중심점 위도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -90
+ *           maximum: 90
+ *           example: 37.5665
+ *       - in: query
+ *         name: lng
+ *         required: true
+ *         description: 검색 중심점 경도
+ *         schema:
+ *           type: number
+ *           format: double
+ *           minimum: -180
+ *           maximum: 180
+ *           example: 126.9780
+ *       - in: query
+ *         name: category
+ *         required: false
+ *         description: 검색할 장소 카테고리
+ *         schema:
+ *           type: string
+ *           enum: [CAFE, RESTAURANT, BAR, CULTURE, SHOPPING]
+ *           example: CAFE
+ *       - in: query
+ *         name: radius
+ *         required: false
+ *         description: 검색 반경 (미터)
+ *         schema:
+ *           type: integer
+ *           minimum: 100
+ *           maximum: 5000
+ *           default: 1000
+ *           example: 1000
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         description: 결과 개수 제한
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 20
+ *           example: 20
+ *     responses:
+ *       200:
+ *         description: 장소 검색 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     places:
+ *                       type: array
+ *                       items:
+ *                         $ref: '#/components/schemas/Place'
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         hasMore:
+ *                           type: boolean
+ *                     searchInfo:
+ *                       type: object
+ *                       properties:
+ *                         center:
+ *                           $ref: '#/components/schemas/Location'
+ *                         radius:
+ *                           type: integer
+ *                         category:
+ *                           type: string
+ *                 message:
+ *                   type: string
+ *                   example: "Places retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 요청 파라미터
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: 서버 내부 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/places/search - Search places near coordinates
 router.get('/search', kakaoApiLimiter, asyncHandler(async (req: Request, res: Response) => {
   const query = SearchPlacesSchema.parse(req.query);
@@ -120,6 +233,47 @@ router.get('/search', kakaoApiLimiter, asyncHandler(async (req: Request, res: Re
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/places/{id}:
+ *   get:
+ *     summary: 장소 상세 정보 조회
+ *     description: 장소 ID를 사용하여 상세 정보를 조회합니다.
+ *     tags: [Places]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 장소 고유 ID
+ *         schema:
+ *           type: string
+ *           example: "place_cafe_1"
+ *     responses:
+ *       200:
+ *         description: 장소 상세 정보 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Place'
+ *                 message:
+ *                   type: string
+ *                   example: "Place details retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: 장소를 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/places/:id - Get place details by ID
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const { id } = GetPlaceSchema.parse({ id: req.params.id });
@@ -175,6 +329,52 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/places/categories:
+ *   get:
+ *     summary: 사용 가능한 장소 카테고리 목록
+ *     description: 검색에 사용할 수 있는 모든 장소 카테고리를 반환합니다.
+ *     tags: [Places]
+ *     responses:
+ *       200:
+ *         description: 카테고리 목록 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       code:
+ *                         type: string
+ *                         description: 카테고리 코드
+ *                         example: "CAFE"
+ *                       name:
+ *                         type: string
+ *                         description: 카테고리 이름
+ *                         example: "카페"
+ *                       description:
+ *                         type: string
+ *                         description: 카테고리 설명
+ *                         example: "커피전문점, 카페, 디저트전문점"
+ *                       icon:
+ *                         type: string
+ *                         description: 카테고리 아이콘
+ *                         example: "☕"
+ *                 message:
+ *                   type: string
+ *                   example: "Categories retrieved successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
 // GET /api/v1/places/categories - Get available place categories
 router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
   const categories = [

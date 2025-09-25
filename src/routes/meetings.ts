@@ -65,6 +65,106 @@ interface MeetingResponse {
   expiresAt: string;
 }
 
+/**
+ * @swagger
+ * /api/v1/meetings:
+ *   post:
+ *     summary: 새 미팅 생성
+ *     description: 참가자들의 위치 정보를 기반으로 새로운 미팅 세션을 생성합니다.
+ *     tags: [Meetings]
+ *     security:
+ *       - DeviceIdAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - participantCount
+ *               - locations
+ *             properties:
+ *               participantCount:
+ *                 type: integer
+ *                 minimum: 2
+ *                 maximum: 10
+ *                 description: 참가자 수
+ *                 example: 3
+ *               locations:
+ *                 type: array
+ *                 minItems: 2
+ *                 maxItems: 10
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - label
+ *                     - address
+ *                     - coordinates
+ *                   properties:
+ *                     label:
+ *                       type: string
+ *                       minLength: 1
+ *                       maxLength: 50
+ *                       description: 위치 라벨 (참가자 이름)
+ *                       example: "철수"
+ *                     address:
+ *                       type: string
+ *                       minLength: 1
+ *                       maxLength: 200
+ *                       description: 주소
+ *                       example: "서울특별시 강남구 강남역"
+ *                     coordinates:
+ *                       type: object
+ *                       required:
+ *                         - lat
+ *                         - lng
+ *                       properties:
+ *                         lat:
+ *                           type: number
+ *                           format: double
+ *                           minimum: -90
+ *                           maximum: 90
+ *                           description: 위도
+ *                           example: 37.4979
+ *                         lng:
+ *                           type: number
+ *                           format: double
+ *                           minimum: -180
+ *                           maximum: 180
+ *                           description: 경도
+ *                           example: 127.0276
+ *     responses:
+ *       201:
+ *         description: 미팅 생성 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Meeting'
+ *                 message:
+ *                   type: string
+ *                   example: "Meeting created successfully"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 요청 데이터
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: 서버 내부 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // POST /api/v1/meetings - Create new meeting
 router.post('/', validateDeviceId, asyncHandler(async (req: Request, res: Response) => {
   const body = CreateMeetingSchema.parse(req.body) as CreateMeetingRequest;
@@ -141,6 +241,51 @@ router.post('/', validateDeviceId, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/meetings/{id}:
+ *   get:
+ *     summary: ID로 미팅 조회
+ *     description: 미팅 ID를 사용하여 미팅 세션 정보를 조회합니다.
+ *     tags: [Meetings]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: 미팅 ID (meet_ prefix)
+ *         schema:
+ *           type: string
+ *           pattern: '^meet_'
+ *           example: "meet_1634567890_abc123def"
+ *     responses:
+ *       200:
+ *         description: 미팅 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Meeting'
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 미팅 ID 형식
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 미팅을 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/meetings/:id - Get meeting by ID
 router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   const meetingId = req.params.id;
@@ -193,6 +338,67 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+/**
+ * @swagger
+ * /api/v1/meetings/code/{code}:
+ *   get:
+ *     summary: 코드로 미팅 조회
+ *     description: 6자리 미팅 코드를 사용하여 미팅 정보를 조회합니다.
+ *     tags: [Meetings]
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         required: true
+ *         description: 6자리 미팅 코드 (영문 대문자 + 숫자)
+ *         schema:
+ *           type: string
+ *           pattern: '^[A-Z0-9]{6}$'
+ *           example: "ABC123"
+ *     responses:
+ *       200:
+ *         description: 미팅 조회 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: 미팅 ID
+ *                       example: "meet_1634567890_abc123def"
+ *                     code:
+ *                       type: string
+ *                       description: 미팅 코드
+ *                       example: "ABC123"
+ *                     found:
+ *                       type: boolean
+ *                       description: 미팅 발견 여부
+ *                       example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Meeting found"
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: 잘못된 코드 형식
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: 미팅을 찾을 수 없음
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // GET /api/v1/meetings/code/:code - Get meeting by code
 router.get('/code/:code', asyncHandler(async (req: Request, res: Response) => {
   const { code } = GetMeetingByCodeSchema.parse({ code: req.params.code });

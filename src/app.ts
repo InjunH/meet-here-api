@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import { config } from 'dotenv';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from '@/config/swagger.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import { rateLimiter } from '@/middleware/rateLimiter.js';
 import { requestLogger } from '@/middleware/requestLogger.js';
@@ -92,6 +94,26 @@ app.use(securityHeaders);
 // Rate limiting (only if enabled)
 if (process.env.ENABLE_RATE_LIMITING === 'true') {
   app.use(rateLimiter);
+}
+
+// Swagger API Documentation (only in development)
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'MeetHere API Documentation',
+    swaggerOptions: {
+      displayRequestDuration: true,
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+    },
+  }));
+
+  // API spec JSON endpoint
+  app.get('/api-docs.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
 }
 
 // API routes

@@ -27,6 +27,78 @@ interface HealthStatus {
   };
 }
 
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: 시스템 전체 헬스 체크
+ *     description: 서버 상태, 서비스 상태, 시스템 리소스 정보를 포함한 전체적인 헬스체크를 수행합니다.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: 헬스체크 성공 (정상 또는 일부 문제)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [healthy, unhealthy, degraded]
+ *                   description: 전체 서비스 상태
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                   description: 응답 시각
+ *                 version:
+ *                   type: string
+ *                   description: API 버전
+ *                 environment:
+ *                   type: string
+ *                   description: 실행 환경
+ *                 uptime:
+ *                   type: number
+ *                   description: 서버 업타임 (초)
+ *                 services:
+ *                   type: object
+ *                   properties:
+ *                     database:
+ *                       type: string
+ *                       enum: [up, down, unknown]
+ *                     redis:
+ *                       type: string
+ *                       enum: [up, down, unknown]
+ *                     kakaoApi:
+ *                       type: string
+ *                       enum: [up, down, unknown]
+ *                 system:
+ *                   type: object
+ *                   properties:
+ *                     memory:
+ *                       type: object
+ *                       properties:
+ *                         used:
+ *                           type: number
+ *                           description: 사용 메모리 (MB)
+ *                         total:
+ *                           type: number
+ *                           description: 전체 메모리 (MB)
+ *                         percentage:
+ *                           type: number
+ *                           description: 메모리 사용률 (%)
+ *                     cpu:
+ *                       type: object
+ *                       properties:
+ *                         usage:
+ *                           type: number
+ *                           description: CPU 사용률 (%)
+ *       503:
+ *         description: 서비스 상태 불량
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 // Basic health check
 router.get('/', asyncHandler(async (req: Request, res: Response) => {
   const startTime = process.hrtime();
@@ -99,6 +171,30 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
   }
 }));
 
+/**
+ * @swagger
+ * /health/live:
+ *   get:
+ *     summary: 서버 생존 확인
+ *     description: 간단한 liveness probe로 서버가 살아있는지 확인합니다.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: 서버 생존 상태
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [alive]
+ *                   description: 생존 상태
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                   description: 응답 시각
+ */
 // Simple liveness probe
 router.get('/live', (req: Request, res: Response) => {
   res.status(200).json({
@@ -107,6 +203,55 @@ router.get('/live', (req: Request, res: Response) => {
   });
 });
 
+/**
+ * @swagger
+ * /health/ready:
+ *   get:
+ *     summary: 서버 준비 상태 확인
+ *     description: readiness probe로 서버가 요청을 처리할 준비가 되어있는지 확인합니다.
+ *     tags: [Health]
+ *     responses:
+ *       200:
+ *         description: 서버 준비 완료
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [ready]
+ *                   description: 준비 상태
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                   description: 응답 시각
+ *                 services:
+ *                   type: object
+ *                   properties:
+ *                     database:
+ *                       type: string
+ *                       enum: [up, down, unknown]
+ *                     redis:
+ *                       type: string
+ *                       enum: [up, down, unknown]
+ *       503:
+ *         description: 서버 준비 미완료
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [not_ready]
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 services:
+ *                   type: object
+ *                   description: 각 서비스별 상태
+ */
 // Readiness probe
 router.get('/ready', asyncHandler(async (req: Request, res: Response) => {
   const services = {
