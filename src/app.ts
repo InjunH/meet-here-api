@@ -15,6 +15,7 @@ import { meetingsRouter } from '@/routes/meetings.js';
 import { placesRouter } from '@/routes/places.js';
 import { votingsRouter } from '@/routes/votings.js';
 import { kakaoRouter } from '@/routes/kakao.js';
+import { naverRouter } from '@/routes/naver.js';
 import { logger } from '@/utils/logger.js';
 
 // Load environment variables
@@ -31,7 +32,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://dapi.kakao.com']
+      connectSrc: ["'self'", 'https://dapi.kakao.com', 'https://naveropenapi.apigw.ntruss.com']
     }
   },
   crossOriginEmbedderPolicy: false
@@ -122,6 +123,7 @@ app.use('/api/v1/meetings', meetingsRouter);
 app.use('/api/v1/places', placesRouter);
 app.use('/api/v1/votings', votingsRouter);
 app.use('/api/v1/kakao', kakaoRouter);
+app.use('/api/v1/naver', naverRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -142,6 +144,7 @@ if (process.env.NODE_ENV !== 'test') {
     logger.info(`🚀 MeetHere API Server running on port ${PORT}`);
     logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
     logger.info(`🗺️ Kakao API: ${process.env.KAKAO_API_KEY ? 'Configured' : 'Not configured'}`);
+    logger.info(`🌐 Naver API: ${process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET ? 'Configured' : 'Not configured'}`);
     logger.info(`💾 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
     logger.info(`🔄 Redis Cache: ${process.env.ENABLE_REDIS_CACHE === 'true' ? 'Enabled' : 'Disabled'}`);
   });

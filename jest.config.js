@@ -17,9 +17,7 @@ const config = {
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
       useESM: true,
-      tsconfig: {
-        module: 'esnext'
-      }
+      tsconfig: './tsconfig.test.json'
     }]
   },
   collectCoverageFrom: [
