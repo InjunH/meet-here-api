@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { securityConfig, serverConfig } from '@/config/index.js';
 
 // Security headers middleware
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
@@ -35,10 +36,10 @@ export const securityHeaders = (req: Request, res: Response, next: NextFunction)
 // API Key validation middleware
 export const validateApiKey = (req: Request, res: Response, next: NextFunction) => {
   const apiKey = req.headers['x-api-key'] as string;
-  const validApiKeys = process.env.VALID_API_KEYS?.split(',') || [];
+  const validApiKeys = securityConfig.validApiKeys;
 
   // Skip API key validation in development
-  if (process.env.NODE_ENV === 'development') {
+  if (serverConfig.isDevelopment) {
     return next();
   }
 

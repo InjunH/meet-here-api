@@ -21,9 +21,9 @@ import { kakaoRouter } from '@/routes/kakao.js';
 import { naverRouter } from '@/routes/naver.js';
 import { meetingPointRouter } from '@/routes/meeting-point.js';
 import { logger } from '@/utils/logger.js';
+import { serverConfig, corsConfig, logConfigInfo } from '@/config/index.js';
 
 const app = express();
-const PORT = process.env.PORT || 8080;
 
 // Security middleware
 app.use(helmet({
@@ -42,9 +42,7 @@ app.use(helmet({
 // CORS configuration
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
-      .split(',')
-      .map(o => o.trim());
+    const allowedOrigins = corsConfig.origins;
 
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) {return callback(null, true);}
@@ -141,14 +139,10 @@ app.use('*', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    logger.info(`🚀 MeetHere API Server running on port ${PORT}`);
-    logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger.info(`🗺️ Kakao API: ${process.env.KAKAO_API_KEY ? 'Configured' : 'Not configured'}`);
-    logger.info(`🌐 Naver API: ${process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET ? 'Configured' : 'Not configured'}`);
-    logger.info(`💾 Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
-    logger.info(`🔄 Redis Cache: ${process.env.ENABLE_REDIS_CACHE === 'true' ? 'Enabled' : 'Disabled'}`);
+if (!serverConfig.isTest) {
+  app.listen(serverConfig.port, () => {
+    logger.info(`🚀 MeetHere API Server running on port ${serverConfig.port}`);
+    logConfigInfo();
   });
 }
 

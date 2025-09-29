@@ -1,10 +1,11 @@
 import rateLimit from 'express-rate-limit';
 import { Request } from 'express';
+import { rateLimitConfig } from '@/config/index.js';
 
 // Rate limiting configuration
-const windowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'); // 1 minute
-const maxRequests = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100');
-const maxRequestsAuth = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS_AUTH || '1000');
+const windowMs = rateLimitConfig.windowMs;
+const maxRequests = rateLimitConfig.maxRequests;
+const maxRequestsAuth = rateLimitConfig.maxRequestsAuth;
 
 // Custom key generator based on IP and user authentication status
 const keyGenerator = (req: Request): string => {

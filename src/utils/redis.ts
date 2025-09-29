@@ -1,9 +1,10 @@
 import { createClient, RedisClientType } from 'redis';
 import { logger } from '@/utils/logger.js';
+import { databaseConfig } from '@/config/index.js';
 
 // Redis configuration
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const isRedisEnabled = process.env.ENABLE_REDIS_CACHE === 'true';
+const redisUrl = databaseConfig.redis.url;
+const isRedisEnabled = databaseConfig.redis.enabled;
 
 // Redis client instance
 let redisClient: RedisClientType | null = null;

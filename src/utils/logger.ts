@@ -1,7 +1,8 @@
 import winston from 'winston';
+import { loggingConfig, serverConfig } from '@/config/index.js';
 
-const logLevel = process.env.LOG_LEVEL || 'info';
-const logFile = process.env.LOG_FILE_PATH || './logs/app.log';
+const logLevel = loggingConfig.level;
+const logFile = loggingConfig.filePath;
 
 // Custom log format
 const logFormat = winston.format.combine(
@@ -17,7 +18,7 @@ const logFormat = winston.format.combine(
       message,
       ...meta,
       service: 'meethere-api',
-      version: process.env.npm_package_version || '1.0.0'
+      version: '1.0.0'
     });
   })
 );
@@ -37,7 +38,7 @@ export const logger = winston.createLogger({
   format: logFormat,
   defaultMeta: {
     service: 'meethere-api',
-    environment: process.env.NODE_ENV || 'development'
+    environment: serverConfig.nodeEnv
   },
   transports: [
     // File logging
@@ -63,7 +64,7 @@ export const logger = winston.createLogger({
 });
 
 // Add console logging for development
-if (process.env.NODE_ENV !== 'production') {
+if (!serverConfig.isProduction) {
   logger.add(new winston.transports.Console({
     format: consoleFormat
   }));

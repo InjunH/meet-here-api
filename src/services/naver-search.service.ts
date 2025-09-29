@@ -5,6 +5,7 @@
 
 import axios, { AxiosResponse } from 'axios';
 import { logger } from '@/utils/logger.js';
+import { apiConfig } from '@/config/index.js';
 
 // 네이버 Local Search API 응답 타입
 interface NaverLocalSearchItem {
@@ -53,8 +54,8 @@ export class NaverSearchService {
   private readonly clientSecret: string;
 
   constructor() {
-    this.clientId = process.env.NAVER_SEARCH_CLIENT_ID || 'ldnYCH3xfxxcJqwC71Xk';
-    this.clientSecret = process.env.NAVER_SEARCH_CLIENT_SECRET || '9Dxd7aqbrv';
+    this.clientId = apiConfig.naver.search.clientId;
+    this.clientSecret = apiConfig.naver.search.clientSecret;
 
     logger.info('네이버 Local Search API 서비스 초기화', {
       clientIdConfigured: !!this.clientId,

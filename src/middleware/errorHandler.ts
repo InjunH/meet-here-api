@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logError } from '@/utils/logger.js';
+import { serverConfig } from '@/config/index.js';
 
 export interface ApiError extends Error {
   statusCode?: number;
@@ -82,7 +83,7 @@ export const errorHandler = (
   }
 
   // Log error (only log 5xx errors in production)
-  if (statusCode >= 500 || process.env.NODE_ENV !== 'production') {
+  if (statusCode >= 500 || !serverConfig.isProduction) {
     logError(error, req);
   }
 
@@ -92,7 +93,7 @@ export const errorHandler = (
     error: code,
     message,
     ...(details && { details }),
-    ...(process.env.NODE_ENV === 'development' && {
+    ...(serverConfig.isDevelopment && {
       stack: error.stack,
       originalError: error.message
     }),

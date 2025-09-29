@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { logger } from '@/utils/logger.js';
 import { validateNaverApiCredentials, getNaverApiSetupGuide } from '@/utils/naver-api-validator.js';
 import { naverSearchService } from '@/services/naver-search.service.js';
+import { apiConfig, serverConfig } from '@/config/index.js';
 
 const router = express.Router();
 
@@ -202,8 +203,8 @@ router.post('/reverse-geocode', async (req, res) => {
     const { lat, lng } = validationResult.data;
 
     // 환경변수 확인
-    const clientId = process.env.NAVER_CLIENT_ID;
-    const clientSecret = process.env.NAVER_CLIENT_SECRET;
+    const clientId = apiConfig.naver.cloud.clientId;
+    const clientSecret = apiConfig.naver.cloud.clientSecret;
 
     if (!clientId || !clientSecret) {
       logger.error('Naver API credentials not configured', { requestId });
@@ -365,15 +366,15 @@ router.post('/reverse-geocode', async (req, res) => {
         responseData,
         responseHeaders: error.response?.headers,
         requestHeaders: {
-          'X-NCP-APIGW-API-KEY-ID': process.env.NAVER_CLIENT_ID,
-          'X-NCP-APIGW-API-KEY': process.env.NAVER_CLIENT_SECRET ? 'configured' : 'missing'
+          'X-NCP-APIGW-API-KEY-ID': apiConfig.naver.cloud.clientId,
+          'X-NCP-APIGW-API-KEY': apiConfig.naver.cloud.clientSecret ? 'configured' : 'missing'
         }
       });
 
       // 401 에러의 경우 상세한 진단 정보 제공
       if (status === 401) {
-        const currentClientId = process.env.NAVER_CLIENT_ID;
-        const currentClientSecret = process.env.NAVER_CLIENT_SECRET;
+        const currentClientId = apiConfig.naver.cloud.clientId;
+        const currentClientSecret = apiConfig.naver.cloud.clientSecret;
         const diagnosisMessage = `네이버 API 인증 오류 (401): API 키 확인 필요\n` +
           `- Client ID: ${currentClientId}\n` +
           `- Client Secret: ${currentClientSecret ? '설정됨' : '미설정'}\n` +
@@ -441,7 +442,7 @@ router.post('/reverse-geocode', async (req, res) => {
  *         description: 네이버 API 설정 누락
  */
 router.get('/health', (req, res) => {
-  const configured = !!(process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET);
+  const configured = !!(apiConfig.naver.cloud.clientId && apiConfig.naver.cloud.clientSecret);
 
   res.status(configured ? 200 : 503).json({
     success: configured,
@@ -472,8 +473,8 @@ router.get('/diagnose', async (req, res) => {
 
   try {
     const validation = await validateNaverApiCredentials(
-      process.env.NAVER_CLIENT_ID,
-      process.env.NAVER_CLIENT_SECRET
+      apiConfig.naver.cloud.clientId,
+      apiConfig.naver.cloud.clientSecret
     );
 
     if (validation.isValid) {
@@ -492,7 +493,7 @@ router.get('/diagnose', async (req, res) => {
         error: validation.errorType,
         message: validation.errorMessage,
         suggestion: validation.suggestion,
-        setupGuide: process.env.NODE_ENV === 'development' ? getNaverApiSetupGuide() : undefined,
+        setupGuide: serverConfig.isDevelopment ? getNaverApiSetupGuide() : undefined,
         fallback: {
           available: true,
           endpoint: '/api/v1/naver/reverse-geocode-test',

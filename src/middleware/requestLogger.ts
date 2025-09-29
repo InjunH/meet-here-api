@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { logRequest, logResponse } from '@/utils/logger.js';
+import { loggingConfig } from '@/config/index.js';
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
   const startTime = Date.now();
@@ -14,7 +15,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   res.setHeader('X-Request-ID', req.headers['x-request-id']);
 
   // Log request if logging is enabled
-  if (process.env.ENABLE_REQUEST_LOGGING === 'true') {
+  if (loggingConfig.requestLogging) {
     logRequest(req, res);
   }
 
@@ -24,7 +25,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
     const duration = Date.now() - startTime;
 
     // Log response if logging is enabled
-    if (process.env.ENABLE_REQUEST_LOGGING === 'true') {
+    if (loggingConfig.requestLogging) {
       logResponse(req, res, duration);
     }
 
