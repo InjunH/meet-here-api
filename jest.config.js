@@ -6,7 +6,8 @@ const config = {
     '^@/(.*)\.js$': '<rootDir>/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@shared/(.*)$': '<rootDir>/../shared/$1',
-    '^@client/(.*)$': '<rootDir>/../meet_here_client/shared/$1'
+    '^@client/(.*)$': '<rootDir>/../meet_here_client/shared/$1',
+    '^(\\.{1,2}/.*)\\.(js)$': '$1'
   },
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],

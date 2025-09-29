@@ -10,7 +10,7 @@ import { z } from 'zod';
 export const configSchema = z.object({
   // 기본 서버 설정
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().transform(Number).pipe(z.number().min(1).max(65535)).default('8080'),
+  PORT: z.string().transform(Number).pipe(z.number().min(0).max(65535)).default('8080'),
 
   // 데이터베이스 설정
   DATABASE_URL: z.string().optional(),
@@ -51,7 +51,7 @@ export const configSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:3000'),
 
   // 로깅 설정
-  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('debug'),
+  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug', 'silent']).default('debug'),
   LOG_FILE_PATH: z.string().default('./logs/app.log'),
 
   // 모니터링 설정

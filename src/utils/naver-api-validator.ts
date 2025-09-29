@@ -2,8 +2,9 @@
  * @fileoverview 네이버 클라우드 플랫폼 API 유효성 검사 유틸리티
  */
 
-import axios from 'axios';
 import { logger } from '@/utils/logger.js';
+import { naverCloudClient } from '@/lib/api-clients.js';
+import { AppError } from '@/middleware/errorHandler.js';
 
 interface NaverApiValidationResult {
   isValid: boolean;
@@ -34,21 +35,10 @@ export async function validateNaverApiCredentials(
 
   try {
     // 실제 API 호출로 검증 (수원시청 좌표 사용)
-    const testResponse = await axios.get(
-      'https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc',
-      {
-        params: {
-          coords: '127.0311352,37.2635694', // 수원시청 좌표
-          orders: 'roadaddr',
-          output: 'json'
-        },
-        headers: {
-          'X-NCP-APIGW-API-KEY-ID': clientId,
-          'X-NCP-APIGW-API-KEY': clientSecret
-        },
-        timeout: 5000
-      }
-    );
+    const testResponse = await naverCloudClient.reverseGeocode('127.0311352,37.2635694', {
+      orders: 'roadaddr',
+      output: 'json'
+    });
 
     // API 응답 성공
     if (testResponse.status === 200 && testResponse.data.status?.code === 0) {
@@ -65,8 +55,8 @@ export async function validateNaverApiCredentials(
     };
 
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status;
+    if (error instanceof AppError) {
+      const status = error.statusCode;
 
       if (status === 401) {
         return {
@@ -100,6 +90,67 @@ export async function validateNaverApiCredentials(
       errorMessage: '알 수 없는 오류가 발생했습니다',
       suggestion: '나중에 다시 시도하거나 시스템 로그를 확인하세요'
     };
+  }
+}
+
+/**
+ * 좌표 유효성 검증
+ * @param lat 위도
+ * @param lng 경도
+ * @throws AppError 유효하지 않은 좌표인 경우
+ */
+export function validateCoordinates(lat: number, lng: number): void {
+  // NaN, Infinity 체크
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new AppError('좌표 값이 유효하지 않습니다', 400, 'VALIDATION_ERROR');
+  }
+
+  // 위도 범위 체크 (-90 ~ 90)
+  if (lat < -90 || lat > 90) {
+    throw new AppError('위도는 -90에서 90 사이여야 합니다', 400, 'VALIDATION_ERROR');
+  }
+
+  // 경도 범위 체크 (-180 ~ 180)
+  if (lng < -180 || lng > 180) {
+    throw new AppError('경도는 -180에서 180 사이여야 합니다', 400, 'VALIDATION_ERROR');
+  }
+
+  // 한국 지역 좌표 범위 체크
+  const KOREA_BOUNDS = {
+    minLat: 33.0,  // 제주도 남쪽
+    maxLat: 38.6,  // 휴전선 근처
+    minLng: 124.0, // 서해
+    maxLng: 132.0  // 동해
+  };
+
+  if (lat < KOREA_BOUNDS.minLat || lat > KOREA_BOUNDS.maxLat) {
+    throw new AppError('좌표가 한국 지역을 벗어났습니다', 400, 'VALIDATION_ERROR');
+  }
+
+  if (lng < KOREA_BOUNDS.minLng || lng > KOREA_BOUNDS.maxLng) {
+    throw new AppError('좌표가 한국 지역을 벗어났습니다', 400, 'VALIDATION_ERROR');
+  }
+}
+
+/**
+ * 검색어 유효성 검증
+ * @param query 검색어
+ * @throws AppError 유효하지 않은 검색어인 경우
+ */
+export function validateSearchQuery(query: string): void {
+  // null, undefined 체크
+  if (query === null || query === undefined) {
+    throw new AppError('검색어가 필요합니다', 400, 'VALIDATION_ERROR');
+  }
+
+  // 빈 문자열 또는 공백만 있는 경우
+  if (typeof query !== 'string' || query.trim().length === 0) {
+    throw new AppError('유효한 검색어를 입력해주세요', 400, 'VALIDATION_ERROR');
+  }
+
+  // 길이 체크 (최대 200자)
+  if (query.length > 200) {
+    throw new AppError('검색어는 200자를 초과할 수 없습니다', 400, 'VALIDATION_ERROR');
   }
 }
 

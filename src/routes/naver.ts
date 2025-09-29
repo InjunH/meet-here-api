@@ -4,12 +4,13 @@
  */
 
 import express from 'express';
-import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '@/utils/logger.js';
 import { validateNaverApiCredentials, getNaverApiSetupGuide } from '@/utils/naver-api-validator.js';
 import { naverSearchService } from '@/services/naver-search.service.js';
+import { naverCloudClient } from '@/lib/api-clients.js';
 import { apiConfig, serverConfig } from '@/config/index.js';
+import { AppError } from '@/middleware/errorHandler.js';
 
 const router = express.Router();
 
@@ -223,33 +224,29 @@ router.post('/reverse-geocode', async (req, res) => {
       userAgent: req.headers['user-agent']
     });
 
-    // 네이버 클라우드 플랫폼 API 연결 상태 진단
-    const coords = encodeURIComponent(`${lng},${lat}`);
-    const apiUrl = `https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc?request=coordsToaddr&coords=${coords}&sourcecrs=epsg:4326&orders=admcode,legalcode,addr,roadaddr&output=json`;
+    // 네이버 클라우드 플랫폼 Reverse Geocoding API 호출
+    const coords = `${lng},${lat}`;
 
-    logger.info('Naver API request details', {
+    logger.info('Naver Cloud API request details', {
       requestId,
-      clientId,
-      clientSecretMasked: clientSecret ? `${clientSecret.substring(0, 4)}****${clientSecret.substring(clientSecret.length - 4)}` : 'null',
-      coords: `${lng},${lat}`,
-      url: apiUrl
+      coords,
+      hasCredentials: !!(clientId && clientSecret)
     });
 
-    // 네이버 클라우드 플랫폼 Reverse Geocoding API 호출 (GET 방식)
-    const naverResponse = await axios.get<NaverReverseGeocodeResponse>(apiUrl, {
-      headers: {
-        'x-ncp-apigw-api-key-id': clientId,
-        'x-ncp-apigw-api-key': clientSecret
-      },
-      timeout: 10000 // 10초 타임아웃
+    const naverResponse = await naverCloudClient.reverseGeocode(coords, {
+      sourceCrs: 'epsg:4326',
+      orders: 'admcode,legalcode,addr,roadaddr',
+      output: 'json'
     });
+
+    const responseData = naverResponse.data as NaverReverseGeocodeResponse;
 
     // API 응답 확인
-    if (naverResponse.data.status.code !== 0) {
+    if (responseData.status.code !== 0) {
       logger.warn('Naver API returned error', {
         requestId,
-        statusCode: naverResponse.data.status.code,
-        statusMessage: naverResponse.data.status.message,
+        statusCode: responseData.status.code,
+        statusMessage: responseData.status.message,
         lat,
         lng
       });
@@ -257,7 +254,7 @@ router.post('/reverse-geocode', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Bad Request',
-        message: `좌표 변환 실패: ${naverResponse.data.status.message}`,
+        message: `좌표 변환 실패: ${responseData.status.message}`,
         timestamp: new Date().toISOString()
       });
     }
@@ -276,8 +273,8 @@ router.post('/reverse-geocode', async (req, res) => {
     }
 
     // 도로명주소와 지번주소 찾기
-    const roadAddrResult = results.find(result => result.name === 'roadaddr');
-    const addrResult = results.find(result => result.name === 'addr');
+    const roadAddrResult = results.find((result: any) => result.name === 'roadaddr');
+    const addrResult = results.find((result: any) => result.name === 'addr');
 
     // 주소 문자열 생성 함수
     const buildAddress = (result: typeof results[0], includeDetails: boolean = true): string => {
@@ -324,7 +321,7 @@ router.post('/reverse-geocode', async (req, res) => {
     ].filter(Boolean).join(' ');
 
     // 응답 데이터 구성
-    const responseData = {
+    const result = {
       address: addrResult ? buildAddress(addrResult) : '',
       roadAddress: roadAddrResult ? buildAddress(roadAddrResult) : '',
       district
@@ -341,7 +338,7 @@ router.post('/reverse-geocode', async (req, res) => {
 
     res.json({
       success: true,
-      data: responseData,
+      data: result,
       timestamp: new Date().toISOString()
     });
 
@@ -353,22 +350,18 @@ router.post('/reverse-geocode', async (req, res) => {
       body: req.body
     });
 
-    // Axios 에러인 경우 상태 코드 확인
-    if (axios.isAxiosError(error)) {
-      const status = error.response?.status || 500;
-      const responseData = error.response?.data;
-      const message = responseData?.message || error.message;
+    // AppError인 경우 상태 코드 확인
+    if (error instanceof AppError) {
+      const status = error.statusCode || 500;
+      const message = error.message;
 
       logger.error('Naver API Error Details', {
         requestId,
         status,
-        statusText: error.response?.statusText,
-        responseData,
-        responseHeaders: error.response?.headers,
-        requestHeaders: {
-          'X-NCP-APIGW-API-KEY-ID': apiConfig.naver.cloud.clientId,
-          'X-NCP-APIGW-API-KEY': apiConfig.naver.cloud.clientSecret ? 'configured' : 'missing'
-        }
+        message,
+        code: (error as any).errorCode || 'UNKNOWN_ERROR',
+        isOperational: (error as any).isOperational || false,
+        metadata: (error as any).metadata || {}
       });
 
       // 401 에러의 경우 상세한 진단 정보 제공

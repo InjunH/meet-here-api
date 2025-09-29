@@ -3,9 +3,9 @@
  * 주소 자동완성 및 장소 검색 기능 제공
  */
 
-import axios, { AxiosResponse } from 'axios';
 import { logger } from '@/utils/logger.js';
-import { apiConfig } from '@/config/index.js';
+import { naverSearchClient, NaverSearchClient } from '@/lib/api-clients.js';
+import { AppError } from '@/middleware/errorHandler.js';
 
 // 네이버 Local Search API 응답 타입
 interface NaverLocalSearchItem {
@@ -49,25 +49,12 @@ export interface SearchOptions {
 }
 
 export class NaverSearchService {
-  private readonly baseUrl = 'https://openapi.naver.com/v1/search/local.json';
-  private readonly clientId: string;
-  private readonly clientSecret: string;
+  private client: NaverSearchClient;
 
   constructor() {
-    this.clientId = apiConfig.naver.search.clientId;
-    this.clientSecret = apiConfig.naver.search.clientSecret;
+    this.client = naverSearchClient;
 
-    logger.info('네이버 Local Search API 서비스 초기화', {
-      clientIdConfigured: !!this.clientId,
-      clientSecretConfigured: !!this.clientSecret
-    });
-
-    if (!this.clientId || !this.clientSecret) {
-      logger.warn('네이버 Local Search API 인증 정보가 설정되지 않았습니다', {
-        clientIdExists: !!this.clientId,
-        clientSecretExists: !!this.clientSecret
-      });
-    }
+    logger.info('네이버 Local Search API 서비스 초기화 완료');
   }
 
   /**
@@ -93,10 +80,6 @@ export class NaverSearchService {
     query: string,
     options: SearchOptions = {}
   ): Promise<AddressSuggestion[]> {
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error('네이버 Local Search API 인증 정보가 설정되지 않았습니다');
-    }
-
     if (!query.trim()) {
       return [];
     }
@@ -111,25 +94,13 @@ export class NaverSearchService {
         sort
       });
 
-      const response: AxiosResponse<NaverLocalSearchResponse> = await axios.get(
-        this.baseUrl,
-        {
-          headers: {
-            'X-Naver-Client-Id': this.clientId,
-            'X-Naver-Client-Secret': this.clientSecret,
-            'User-Agent': 'MeetHere-API/1.0'
-          },
-          params: {
-            query: query,  // axios가 자동으로 인코딩 처리
-            display,
-            start,
-            sort
-          },
-          timeout: 10000 // 10초 타임아웃
-        }
-      );
+      const response = await this.client.searchLocal(query, {
+        display,
+        start,
+        sort
+      });
 
-      const data = response.data;
+      const data = response.data as NaverLocalSearchResponse;
 
       logger.info('네이버 Local Search API 응답', {
         total: data.total,
@@ -174,33 +145,21 @@ export class NaverSearchService {
     } catch (error) {
       logger.error('네이버 Local Search API 호출 실패', {
         query,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
 
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        const message = error.response?.data?.errorMessage || error.message;
-
-        logger.error('네이버 API 에러 상세', {
-          status,
-          message,
-          headers: error.response?.headers
-        });
-
-        // 특정 에러에 대한 사용자 친화적 메시지
-        if (status === 401) {
-          throw new Error('네이버 API 인증에 실패했습니다. API 키를 확인해주세요.');
-        } else if (status === 403) {
-          throw new Error('네이버 API 사용 권한이 없습니다.');
-        } else if (status === 429) {
-          throw new Error('네이버 API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
-        }
-
-        throw new Error(`네이버 API 호출 실패: ${message}`);
+      // AppError로 변환되어 넘어온 에러는 그대로 다시 던지기
+      if (error instanceof AppError) {
+        throw error;
       }
 
-      throw new Error('주소 검색 중 오류가 발생했습니다');
+      throw new AppError(
+        '주소 검색 중 오류가 발생했습니다',
+        500,
+        'SEARCH_ERROR',
+        true,
+        { query, options }
+      );
     }
   }
 
@@ -223,9 +182,8 @@ export class NaverSearchService {
    */
   async checkConnection(): Promise<{ connected: boolean; error?: string }> {
     try {
-      // 테스트용으로 간단한 검색 수행
-      await this.searchLocal('서울', { display: 1 });
-      return { connected: true };
+      const isConnected = await this.client.testConnection();
+      return { connected: isConnected };
     } catch (error) {
       return {
         connected: false,

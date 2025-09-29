@@ -281,15 +281,12 @@ export class MeetingPointService {
       typeof lng === 'number' &&
       !isNaN(lat) &&
       !isNaN(lng) &&
+      isFinite(lat) &&
+      isFinite(lng) &&
       lat >= -90 &&
       lat <= 90 &&
       lng >= -180 &&
-      lng <= 180 &&
-      // 서울 지역 대략적 범위 체크 (선택사항)
-      lat >= 37.4 &&
-      lat <= 37.7 &&
-      lng >= 126.8 &&
-      lng <= 127.2
+      lng <= 180
     );
   }
 
@@ -301,6 +298,136 @@ export class MeetingPointService {
    */
   public calculateMidpoint(point1: Point, point2: Point): MeetingCenter {
     return this.calculateGeometricCenter([point1, point2]);
+  }
+
+  /**
+   * 중심점 계산 (테스트 호환용)
+   * @param locations 위치 배열
+   * @returns 중심점
+   */
+  public calculateCenterPoint(locations: Point[]): MeetingCenter {
+    return this.calculateGeometricCenter(locations);
+  }
+
+  /**
+   * 가중치를 고려한 중심점 계산 (테스트 호환용)
+   * @param locations 위치 배열
+   * @param weights 가중치 배열
+   * @returns 가중치 중심점
+   */
+  public calculateWeightedCenterPoint(locations: Point[], weights: number[]): MeetingCenter {
+    if (weights.length === 0) {
+      return this.calculateGeometricCenter(locations);
+    }
+    return this.calculateGeometricCenter(locations, weights);
+  }
+
+  /**
+   * 위치 배열의 경계 계산
+   * @param locations 위치 배열
+   * @returns 경계 좌표
+   */
+  public calculateBounds(locations: Point[]): {
+    northeast: Point;
+    southwest: Point;
+  } {
+    if (locations.length === 0) {
+      throw new Error('위치 배열이 비어있습니다');
+    }
+
+    if (locations.length === 1) {
+      return {
+        northeast: { lat: locations[0].lat, lng: locations[0].lng },
+        southwest: { lat: locations[0].lat, lng: locations[0].lng }
+      };
+    }
+
+    let minLat = locations[0].lat;
+    let maxLat = locations[0].lat;
+    let minLng = locations[0].lng;
+    let maxLng = locations[0].lng;
+
+    for (const location of locations) {
+      minLat = Math.min(minLat, location.lat);
+      maxLat = Math.max(maxLat, location.lat);
+      minLng = Math.min(minLng, location.lng);
+      maxLng = Math.max(maxLng, location.lng);
+    }
+
+    return {
+      northeast: { lat: maxLat, lng: maxLng },
+      southwest: { lat: minLat, lng: minLng }
+    };
+  }
+
+  /**
+   * 중심점에서 각 위치까지의 거리 계산
+   * @param centerPoint 중심점
+   * @param locations 위치 배열
+   * @returns 거리 통계
+   */
+  public calculateDistances(centerPoint: MeetingCenter, locations: Point[]): {
+    distances: number[];
+    totalDistance: number;
+    averageDistance: number;
+  } {
+    const distances = locations.map(location => {
+      return this.calculateHaversineDistance(centerPoint, location);
+    });
+
+    const totalDistance = distances.reduce((sum, distance) => sum + distance, 0);
+    const averageDistance = totalDistance / distances.length;
+
+    return {
+      distances,
+      totalDistance,
+      averageDistance
+    };
+  }
+
+  /**
+   * 위치 유효성 검증 (테스트 호환용)
+   * @param locations 위치 배열
+   */
+  public validateLocations(locations: Point[]): void {
+    if (!locations || locations.length === 0) {
+      throw new Error('최소 1개 이상의 위치가 필요합니다');
+    }
+
+    if (locations.length === 1) {
+      throw new Error('최소 2개 이상의 위치가 필요합니다');
+    }
+
+    for (const location of locations) {
+      if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+        throw new Error('유효하지 않은 위치 데이터입니다');
+      }
+
+      if (!this.isValidCoordinate(location.lat, location.lng)) {
+        throw new Error(`유효하지 않은 좌표: (${location.lat}, ${location.lng})`);
+      }
+    }
+  }
+
+  /**
+   * 두 지점 간 Haversine 거리 계산 (미터 단위)
+   * @param point1 첫 번째 지점
+   * @param point2 두 번째 지점
+   * @returns 거리 (미터)
+   */
+  private calculateHaversineDistance(point1: Point, point2: Point): number {
+    const R = 6371000; // 지구 반지름 (미터)
+    const lat1Rad = (point1.lat * Math.PI) / 180;
+    const lat2Rad = (point2.lat * Math.PI) / 180;
+    const deltaLat = ((point2.lat - point1.lat) * Math.PI) / 180;
+    const deltaLng = ((point2.lng - point1.lng) * Math.PI) / 180;
+
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
   }
 
   /**
