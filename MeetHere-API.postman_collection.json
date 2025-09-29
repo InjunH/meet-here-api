@@ -122,6 +122,125 @@
 				},
 				"description": "네이버 API 키 유효성을 실제 API 호출로 검증합니다."
 			}
+		},
+		{
+			"name": "중간지점 계산",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"participants\": [\n    {\n      \"name\": \"Person A\",\n      \"lat\": 37.5665,\n      \"lng\": 126.9780,\n      \"address\": \"서울역 근처\"\n    },\n    {\n      \"name\": \"Person B\",\n      \"lat\": 37.5707,\n      \"lng\": 126.9775,\n      \"address\": \"시청역 근처\"\n    }\n  ],\n  \"options\": {\n    \"maxDistance\": 2000,\n    \"maxResults\": 5,\n    \"includeTransfers\": true\n  }\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/api/v1/meeting-point/calculate",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"meeting-point",
+						"calculate"
+					]
+				},
+				"description": "여러 참가자의 위치를 기반으로 중간지점을 계산하고 주변 지하철역을 추천합니다."
+			}
+		},
+		{
+			"name": "지하철역 이름 검색",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/v1/meeting-point/stations/search?query=시청&limit=5",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"meeting-point",
+						"stations",
+						"search"
+					],
+					"query": [
+						{
+							"key": "query",
+							"value": "시청"
+						},
+						{
+							"key": "limit",
+							"value": "5"
+						}
+					]
+				},
+				"description": "지하철역 이름으로 검색합니다."
+			}
+		},
+		{
+			"name": "주변 지하철역 검색",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/v1/meeting-point/stations/nearby?lat=37.5707&lng=126.9775&radius=1000&limit=5",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"meeting-point",
+						"stations",
+						"nearby"
+					],
+					"query": [
+						{
+							"key": "lat",
+							"value": "37.5707"
+						},
+						{
+							"key": "lng",
+							"value": "126.9775"
+						},
+						{
+							"key": "radius",
+							"value": "1000"
+						},
+						{
+							"key": "limit",
+							"value": "5"
+						}
+					]
+				},
+				"description": "특정 좌표 주변의 지하철역을 검색합니다."
+			}
+		},
+		{
+			"name": "중간지점 서비스 상태 확인",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/api/v1/meeting-point/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"api",
+						"v1",
+						"meeting-point",
+						"health"
+					]
+				},
+				"description": "중간지점 계산 서비스 상태를 확인합니다."
+			}
 		}
 	],
 	"event": [

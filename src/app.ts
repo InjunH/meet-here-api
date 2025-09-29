@@ -19,6 +19,7 @@ import { placesRouter } from '@/routes/places.js';
 import { votingsRouter } from '@/routes/votings.js';
 import { kakaoRouter } from '@/routes/kakao.js';
 import { naverRouter } from '@/routes/naver.js';
+import { meetingPointRouter } from '@/routes/meeting-point.js';
 import { logger } from '@/utils/logger.js';
 
 const app = express();
@@ -124,6 +125,7 @@ app.use('/api/v1/places', placesRouter);
 app.use('/api/v1/votings', votingsRouter);
 app.use('/api/v1/kakao', kakaoRouter);
 app.use('/api/v1/naver', naverRouter);
+app.use('/api/v1/meeting-point', meetingPointRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
