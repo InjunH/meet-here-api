@@ -1,9 +1,12 @@
+// Load environment variables FIRST
+import { config } from 'dotenv';
+config();
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import { config } from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from '@/config/swagger.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
@@ -17,9 +20,6 @@ import { votingsRouter } from '@/routes/votings.js';
 import { kakaoRouter } from '@/routes/kakao.js';
 import { naverRouter } from '@/routes/naver.js';
 import { logger } from '@/utils/logger.js';
-
-// Load environment variables
-config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;

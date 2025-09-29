@@ -8,6 +8,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { logger } from '@/utils/logger.js';
 import { validateNaverApiCredentials, getNaverApiSetupGuide } from '@/utils/naver-api-validator.js';
+import { naverSearchService } from '@/services/naver-search.service.js';
 
 const router = express.Router();
 
@@ -16,6 +17,12 @@ const router = express.Router();
 const reverseGeocodeRequestSchema = z.object({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180)
+});
+
+// 자동완성 요청 스키마
+const autocompleteRequestSchema = z.object({
+  query: z.string().min(2, '검색어는 최소 2글자 이상이어야 합니다').max(100, '검색어는 100글자를 초과할 수 없습니다'),
+  limit: z.number().min(1).max(5).optional().default(5)
 });
 
 // 네이버 API 응답 타입
@@ -505,6 +512,199 @@ router.get('/diagnose', async (req, res) => {
       service: 'naver-api',
       status: 'error',
       message: '진단 프로세스 중 오류가 발생했습니다',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     AutocompleteRequest:
+ *       type: object
+ *       required:
+ *         - query
+ *       properties:
+ *         query:
+ *           type: string
+ *           minLength: 2
+ *           maxLength: 100
+ *           description: 검색어 (최소 2글자)
+ *           example: "강남대로"
+ *         limit:
+ *           type: number
+ *           minimum: 1
+ *           maximum: 5
+ *           default: 5
+ *           description: 검색 결과 개수
+ *           example: 5
+ *
+ *     AddressSuggestion:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: 고유 식별자
+ *           example: "1270261093_375010898_0"
+ *         title:
+ *           type: string
+ *           description: 장소명/업체명
+ *           example: "강남대로"
+ *         address:
+ *           type: string
+ *           description: 지번 주소
+ *           example: "서울특별시 서초구 서초동"
+ *         roadAddress:
+ *           type: string
+ *           description: 도로명 주소
+ *           example: ""
+ *         category:
+ *           type: string
+ *           description: 카테고리
+ *           example: "도로시설>도로명칭"
+ *         coordinates:
+ *           type: object
+ *           properties:
+ *             lat:
+ *               type: number
+ *               description: 위도 (WGS84)
+ *               example: 37.501089
+ *             lng:
+ *               type: number
+ *               description: 경도 (WGS84)
+ *               example: 127.026109
+ *
+ *     AutocompleteResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           description: 요청 성공 여부
+ *         data:
+ *           type: array
+ *           items:
+ *             $ref: '#/components/schemas/AddressSuggestion'
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *           description: 응답 시간
+ */
+
+/**
+ * @swagger
+ * /api/v1/naver/autocomplete:
+ *   post:
+ *     summary: 주소 자동완성 검색
+ *     description: 검색어를 입력하면 관련된 주소 및 장소 목록을 반환합니다. 네이버 Local Search API를 활용합니다.
+ *     tags: [Naver API]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AutocompleteRequest'
+ *     responses:
+ *       200:
+ *         description: 성공적으로 자동완성 결과를 조회했습니다
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AutocompleteResponse'
+ *       400:
+ *         description: 잘못된 요청 (검색어 길이 등)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Bad Request"
+ *                 message:
+ *                   type: string
+ *                   example: "검색어는 최소 2글자 이상이어야 합니다"
+ *       500:
+ *         description: 서버 내부 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Internal Server Error"
+ *                 message:
+ *                   type: string
+ *                   example: "네이버 API 호출 중 오류가 발생했습니다"
+ */
+router.post('/autocomplete', async (req, res) => {
+  const requestId = req.headers['x-request-id'] || 'unknown';
+
+  try {
+    // 요청 데이터 검증
+    const validationResult = autocompleteRequestSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      logger.warn('자동완성 요청 검증 실패', {
+        requestId,
+        errors: validationResult.error.errors,
+        body: req.body
+      });
+
+      return res.status(400).json({
+        success: false,
+        error: 'Bad Request',
+        message: validationResult.error.errors[0]?.message || '잘못된 요청입니다',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { query, limit } = validationResult.data;
+
+    logger.info('자동완성 검색 요청', {
+      requestId,
+      query,
+      limit,
+      userAgent: req.headers['user-agent']
+    });
+
+    // 네이버 Local Search API 호출
+    const suggestions = await naverSearchService.searchLocal(query, {
+      display: limit,
+      sort: 'random'
+    });
+
+    logger.info('자동완성 검색 성공', {
+      requestId,
+      query,
+      resultCount: suggestions.length
+    });
+
+    res.json({
+      success: true,
+      data: suggestions,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('자동완성 검색 실패', {
+      requestId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body
+    });
+
+    res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : '자동완성 검색 중 오류가 발생했습니다',
       timestamp: new Date().toISOString()
     });
   }
