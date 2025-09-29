@@ -17,8 +17,8 @@ export class NaverCloudClient extends HttpClient {
       baseURL: 'https://maps.apigw.ntruss.com',
       timeout: 10000,
       headers: {
-        'X-NCP-APIGW-API-KEY-ID': apiConfig.naver.cloud.clientId || '',
-        'X-NCP-APIGW-API-KEY': apiConfig.naver.cloud.clientSecret || '',
+        'x-ncp-apigw-api-key-id': apiConfig.naver.cloud.clientId || '',
+        'x-ncp-apigw-api-key': apiConfig.naver.cloud.clientSecret || '',
       },
       retryAttempts: 2,
       retryDelay: 1000,

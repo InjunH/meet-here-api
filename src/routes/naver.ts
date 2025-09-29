@@ -3,28 +3,33 @@
  * Reverse Geocoding API를 프록시로 제공하여 CORS 문제 해결
  */
 
-import express from 'express';
-import { z } from 'zod';
-import { logger } from '@/utils/logger.js';
-import { validateNaverApiCredentials, getNaverApiSetupGuide } from '@/utils/naver-api-validator.js';
-import { naverSearchService } from '@/services/naver-search.service.js';
-import { naverCloudClient } from '@/lib/api-clients.js';
-import { apiConfig, serverConfig } from '@/config/index.js';
-import { AppError } from '@/middleware/errorHandler.js';
+import express from "express";
+import { z } from "zod";
+import { logger } from "@/utils/logger.js";
+import {
+  validateNaverApiCredentials,
+  getNaverApiSetupGuide,
+} from "@/utils/naver-api-validator.js";
+import { naverSearchService } from "@/services/naver-search.service.js";
+import { naverCloudClient } from "@/lib/api-clients.js";
+import { apiConfig, serverConfig } from "@/config/index.js";
+import { AppError } from "@/middleware/errorHandler.js";
 
 const router = express.Router();
-
 
 // Reverse Geocoding 요청 스키마
 const reverseGeocodeRequestSchema = z.object({
   lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180)
+  lng: z.number().min(-180).max(180),
 });
 
 // 자동완성 요청 스키마
 const autocompleteRequestSchema = z.object({
-  query: z.string().min(2, '검색어는 최소 2글자 이상이어야 합니다').max(100, '검색어는 100글자를 초과할 수 없습니다'),
-  limit: z.number().min(1).max(5).optional().default(5)
+  query: z
+    .string()
+    .min(2, "검색어는 최소 2글자 이상이어야 합니다")
+    .max(100, "검색어는 100글자를 초과할 수 없습니다"),
+  limit: z.number().min(1).max(5).optional().default(5),
 });
 
 // 네이버 API 응답 타입
@@ -179,25 +184,26 @@ interface NaverReverseGeocodeResponse {
  *                   type: string
  *                   example: "네이버 API 호출 중 오류가 발생했습니다"
  */
-router.post('/reverse-geocode', async (req, res) => {
-  const requestId = req.headers['x-request-id'] || 'unknown';
+router.post("/reverse-geocode", async (req, res) => {
+  const requestId = req.headers["x-request-id"] || "unknown";
 
   try {
     // 요청 데이터 검증
     const validationResult = reverseGeocodeRequestSchema.safeParse(req.body);
 
     if (!validationResult.success) {
-      logger.warn('Reverse geocoding validation failed', {
+      logger.warn("Reverse geocoding validation failed", {
         requestId,
         errors: validationResult.error.errors,
-        body: req.body
+        body: req.body,
       });
 
       return res.status(400).json({
         success: false,
-        error: 'Bad Request',
-        message: validationResult.error.errors[0]?.message || '잘못된 요청입니다',
-        timestamp: new Date().toISOString()
+        error: "Bad Request",
+        message:
+          validationResult.error.errors[0]?.message || "잘못된 요청입니다",
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -208,82 +214,89 @@ router.post('/reverse-geocode', async (req, res) => {
     const clientSecret = apiConfig.naver.cloud.clientSecret;
 
     if (!clientId || !clientSecret) {
-      logger.error('Naver API credentials not configured', { requestId });
+      logger.error("Naver API credentials not configured", { requestId });
       return res.status(500).json({
         success: false,
-        error: 'Internal Server Error',
-        message: '네이버 API 인증 정보가 설정되지 않았습니다',
-        timestamp: new Date().toISOString()
+        error: "Internal Server Error",
+        message: "네이버 API 인증 정보가 설정되지 않았습니다",
+        timestamp: new Date().toISOString(),
       });
     }
 
-    logger.info('Reverse geocoding request', {
+    logger.info("Reverse geocoding request", {
       requestId,
       lat,
       lng,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers["user-agent"],
     });
 
     // 네이버 클라우드 플랫폼 Reverse Geocoding API 호출
     const coords = `${lng},${lat}`;
 
-    logger.info('Naver Cloud API request details', {
+    logger.info("Naver Cloud API request details", {
       requestId,
       coords,
-      hasCredentials: !!(clientId && clientSecret)
+      hasCredentials: !!(clientId && clientSecret),
     });
 
     const naverResponse = await naverCloudClient.reverseGeocode(coords, {
-      sourceCrs: 'epsg:4326',
-      orders: 'admcode,legalcode,addr,roadaddr',
-      output: 'json'
+      sourceCrs: "epsg:4326",
+      orders: "admcode,legalcode,addr,roadaddr",
+      output: "json",
     });
 
     const responseData = naverResponse.data as NaverReverseGeocodeResponse;
 
     // API 응답 확인
     if (responseData.status.code !== 0) {
-      logger.warn('Naver API returned error', {
+      logger.warn("Naver API returned error", {
         requestId,
         statusCode: responseData.status.code,
         statusMessage: responseData.status.message,
         lat,
-        lng
+        lng,
       });
 
       return res.status(400).json({
         success: false,
-        error: 'Bad Request',
+        error: "Bad Request",
         message: `좌표 변환 실패: ${responseData.status.message}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
     // 결과 데이터 처리
     const results = naverResponse.data.results;
     if (!results || results.length === 0) {
-      logger.warn('No geocoding results found', { requestId, lat, lng });
+      logger.warn("No geocoding results found", { requestId, lat, lng });
 
       return res.status(404).json({
         success: false,
-        error: 'Not Found',
-        message: '해당 좌표에 대한 주소를 찾을 수 없습니다',
-        timestamp: new Date().toISOString()
+        error: "Not Found",
+        message: "해당 좌표에 대한 주소를 찾을 수 없습니다",
+        timestamp: new Date().toISOString(),
       });
     }
 
     // 도로명주소와 지번주소 찾기
-    const roadAddrResult = results.find((result: any) => result.name === 'roadaddr');
-    const addrResult = results.find((result: any) => result.name === 'addr');
+    const roadAddrResult = results.find(
+      (result: any) => result.name === "roadaddr"
+    );
+    const addrResult = results.find((result: any) => result.name === "addr");
 
     // 주소 문자열 생성 함수
-    const buildAddress = (result: typeof results[0], includeDetails: boolean = true): string => {
+    const buildAddress = (
+      result: (typeof results)[0],
+      includeDetails: boolean = true
+    ): string => {
       const region = result.region;
       const baseAddress = [
-        region.area1?.name,  // 시/도
-        region.area2?.name,  // 시/군/구
-        region.area3?.name,  // 읍/면/동
-      ].filter(Boolean).join(' ');
+        region.area1?.name, // 시/도
+        region.area2?.name, // 시/군/구
+        region.area3?.name, // 읍/면/동
+      ]
+        .filter(Boolean)
+        .join(" ");
 
       if (!includeDetails || !result.land) {
         return baseAddress;
@@ -305,49 +318,50 @@ router.post('/reverse-geocode', async (req, res) => {
         result.land.addition1?.value,
         result.land.addition2?.value,
         result.land.addition3?.value,
-        result.land.addition4?.value
+        result.land.addition4?.value,
       ].filter(Boolean);
 
-      return [baseAddress, details.join(''), ...additions]
+      return [baseAddress, details.join(""), ...additions]
         .filter(Boolean)
-        .join(' ');
+        .join(" ");
     };
 
     // 행정구역 정보
     const district = [
-      addrResult?.region.area1?.name || roadAddrResult?.region.area1?.name,  // 시/도
-      addrResult?.region.area2?.name || roadAddrResult?.region.area2?.name,  // 시/군/구
-      addrResult?.region.area3?.name || roadAddrResult?.region.area3?.name   // 읍/면/동
-    ].filter(Boolean).join(' ');
+      addrResult?.region.area1?.name || roadAddrResult?.region.area1?.name, // 시/도
+      addrResult?.region.area2?.name || roadAddrResult?.region.area2?.name, // 시/군/구
+      addrResult?.region.area3?.name || roadAddrResult?.region.area3?.name, // 읍/면/동
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     // 응답 데이터 구성
     const result = {
-      address: addrResult ? buildAddress(addrResult) : '',
-      roadAddress: roadAddrResult ? buildAddress(roadAddrResult) : '',
-      district
+      address: addrResult ? buildAddress(addrResult) : "",
+      roadAddress: roadAddrResult ? buildAddress(roadAddrResult) : "",
+      district,
     };
 
-    logger.info('Reverse geocoding successful', {
+    logger.info("Reverse geocoding successful", {
       requestId,
       lat,
       lng,
       hasRoadAddr: !!roadAddrResult,
       hasAddr: !!addrResult,
-      district
+      district,
     });
 
     res.json({
       success: true,
       data: result,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
-    logger.error('Reverse geocoding failed', {
+    logger.error("Reverse geocoding failed", {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
-      body: req.body
+      body: req.body,
     });
 
     // AppError인 경우 상태 코드 확인
@@ -355,51 +369,52 @@ router.post('/reverse-geocode', async (req, res) => {
       const status = error.statusCode || 500;
       const message = error.message;
 
-      logger.error('Naver API Error Details', {
+      logger.error("Naver API Error Details", {
         requestId,
         status,
         message,
-        code: (error as any).errorCode || 'UNKNOWN_ERROR',
+        code: (error as any).errorCode || "UNKNOWN_ERROR",
         isOperational: (error as any).isOperational || false,
-        metadata: (error as any).metadata || {}
+        metadata: (error as any).metadata || {},
       });
 
       // 401 에러의 경우 상세한 진단 정보 제공
       if (status === 401) {
         const currentClientId = apiConfig.naver.cloud.clientId;
         const currentClientSecret = apiConfig.naver.cloud.clientSecret;
-        const diagnosisMessage = `네이버 API 인증 오류 (401): API 키 확인 필요\n` +
+        const diagnosisMessage =
+          `네이버 API 인증 오류 (401): API 키 확인 필요\n` +
           `- Client ID: ${currentClientId}\n` +
-          `- Client Secret: ${currentClientSecret ? '설정됨' : '미설정'}\n` +
+          `- Client Secret: ${currentClientSecret ? "설정됨" : "미설정"}\n` +
           `- 가능한 원인: 1) API 키가 잘못되었음 2) 네이버 클라우드 플랫폼에서 서비스가 활성화되지 않음 3) 도메인 제한 설정 문제\n` +
           `- 대안: /api/v1/naver/reverse-geocode-test 엔드포인트 사용 (Mock 데이터)`;
 
         return res.status(503).json({
           success: false,
-          error: 'Service Unavailable',
+          error: "Service Unavailable",
           message: diagnosisMessage,
           fallback: {
             available: true,
-            endpoint: '/api/v1/naver/reverse-geocode-test',
-            description: '테스트용 Mock 데이터 제공'
+            endpoint: "/api/v1/naver/reverse-geocode-test",
+            description: "테스트용 Mock 데이터 제공",
           },
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
       }
 
       return res.status(status).json({
         success: false,
-        error: status >= 500 ? 'Internal Server Error' : 'Bad Request',
+        error: status >= 500 ? "Internal Server Error" : "Bad Request",
         message: `네이버 API 호출 실패: ${message}`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
     res.status(500).json({
       success: false,
-      error: 'Internal Server Error',
-      message: '역지오코딩 처리 중 오류가 발생했습니다',
-      timestamp: new Date().toISOString()
+      error: "Internal Server Error",
+      message: "역지오코딩 처리 중 오류가 발생했습니다",
+      timestamp: new Date().toISOString(),
     });
   }
 });
@@ -434,15 +449,17 @@ router.post('/reverse-geocode', async (req, res) => {
  *       503:
  *         description: 네이버 API 설정 누락
  */
-router.get('/health', (req, res) => {
-  const configured = !!(apiConfig.naver.cloud.clientId && apiConfig.naver.cloud.clientSecret);
+router.get("/health", (req, res) => {
+  const configured = !!(
+    apiConfig.naver.cloud.clientId && apiConfig.naver.cloud.clientSecret
+  );
 
   res.status(configured ? 200 : 503).json({
     success: configured,
-    service: 'naver-api',
-    status: configured ? 'healthy' : 'misconfigured',
+    service: "naver-api",
+    status: configured ? "healthy" : "misconfigured",
     configured,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -459,10 +476,10 @@ router.get('/health', (req, res) => {
  *       503:
  *         description: API 키 검증 실패 또는 설정 문제
  */
-router.get('/diagnose', async (req, res) => {
-  const requestId = req.headers['x-request-id'] || 'unknown';
+router.get("/diagnose", async (req, res) => {
+  const requestId = req.headers["x-request-id"] || "unknown";
 
-  logger.info('Naver API diagnosis requested', { requestId });
+  logger.info("Naver API diagnosis requested", { requestId });
 
   try {
     const validation = await validateNaverApiCredentials(
@@ -473,40 +490,42 @@ router.get('/diagnose', async (req, res) => {
     if (validation.isValid) {
       res.json({
         success: true,
-        service: 'naver-api',
-        status: 'valid',
-        message: '네이버 API 키가 정상적으로 작동합니다',
-        timestamp: new Date().toISOString()
+        service: "naver-api",
+        status: "valid",
+        message: "네이버 API 키가 정상적으로 작동합니다",
+        timestamp: new Date().toISOString(),
       });
     } else {
       res.status(503).json({
         success: false,
-        service: 'naver-api',
-        status: 'invalid',
+        service: "naver-api",
+        status: "invalid",
         error: validation.errorType,
         message: validation.errorMessage,
         suggestion: validation.suggestion,
-        setupGuide: serverConfig.isDevelopment ? getNaverApiSetupGuide() : undefined,
+        setupGuide: serverConfig.isDevelopment
+          ? getNaverApiSetupGuide()
+          : undefined,
         fallback: {
           available: true,
-          endpoint: '/api/v1/naver/reverse-geocode-test',
-          description: '테스트용 Mock 데이터 제공'
+          endpoint: "/api/v1/naver/reverse-geocode-test",
+          description: "테스트용 Mock 데이터 제공",
         },
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
   } catch (error) {
-    logger.error('Naver API diagnosis failed', {
+    logger.error("Naver API diagnosis failed", {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     });
 
     res.status(500).json({
       success: false,
-      service: 'naver-api',
-      status: 'error',
-      message: '진단 프로세스 중 오류가 발생했습니다',
-      timestamp: new Date().toISOString()
+      service: "naver-api",
+      status: "error",
+      message: "진단 프로세스 중 오류가 발생했습니다",
+      timestamp: new Date().toISOString(),
     });
   }
 });
@@ -638,71 +657,73 @@ router.get('/diagnose', async (req, res) => {
  *                   type: string
  *                   example: "네이버 API 호출 중 오류가 발생했습니다"
  */
-router.post('/autocomplete', async (req, res) => {
-  const requestId = req.headers['x-request-id'] || 'unknown';
+router.post("/autocomplete", async (req, res) => {
+  const requestId = req.headers["x-request-id"] || "unknown";
 
   try {
     // 요청 데이터 검증
     const validationResult = autocompleteRequestSchema.safeParse(req.body);
 
     if (!validationResult.success) {
-      logger.warn('자동완성 요청 검증 실패', {
+      logger.warn("자동완성 요청 검증 실패", {
         requestId,
         errors: validationResult.error.errors,
-        body: req.body
+        body: req.body,
       });
 
       return res.status(400).json({
         success: false,
-        error: 'Bad Request',
-        message: validationResult.error.errors[0]?.message || '잘못된 요청입니다',
-        timestamp: new Date().toISOString()
+        error: "Bad Request",
+        message:
+          validationResult.error.errors[0]?.message || "잘못된 요청입니다",
+        timestamp: new Date().toISOString(),
       });
     }
 
     const { query, limit } = validationResult.data;
 
-    logger.info('자동완성 검색 요청', {
+    logger.info("자동완성 검색 요청", {
       requestId,
       query,
       limit,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers["user-agent"],
     });
 
     // 네이버 Local Search API 호출
     const suggestions = await naverSearchService.searchLocal(query, {
       display: limit,
-      sort: 'random'
+      sort: "random",
     });
 
-    logger.info('자동완성 검색 성공', {
+    logger.info("자동완성 검색 성공", {
       requestId,
       query,
-      resultCount: suggestions.length
+      resultCount: suggestions.length,
     });
 
     res.json({
       success: true,
       data: suggestions,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
-    logger.error('자동완성 검색 실패', {
+    logger.error("자동완성 검색 실패", {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : "Unknown error",
       stack: error instanceof Error ? error.stack : undefined,
-      body: req.body
+      body: req.body,
     });
 
     res.status(500).json({
       success: false,
-      error: 'Internal Server Error',
-      message: error instanceof Error ? error.message : '자동완성 검색 중 오류가 발생했습니다',
-      timestamp: new Date().toISOString()
+      error: "Internal Server Error",
+      message:
+        error instanceof Error
+          ? error.message
+          : "자동완성 검색 중 오류가 발생했습니다",
+      timestamp: new Date().toISOString(),
     });
   }
 });
-
 
 export { router as naverRouter };
