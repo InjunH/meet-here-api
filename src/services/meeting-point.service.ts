@@ -5,6 +5,7 @@
 
 import { logger } from '@/utils/logger.js';
 import { subwayStationService } from './subway-station.service.js';
+import { getDisplayNameFromCoords } from '@/lib/api-clients.js';
 import type {
   ParticipantLocation,
   MeetingPointRequest,
@@ -234,15 +235,22 @@ export class MeetingPointService {
       const weights = options.weights;
       const center = this.calculateGeometricCenter(points, weights);
 
-      // 2. 거리 통계 계산
+      // 2. displayName 추가 (역지오코딩)
+      const displayName = await getDisplayNameFromCoords(center.lat, center.lng);
+      const centerWithDisplayName = {
+        ...center,
+        displayName
+      };
+
+      // 3. 거리 통계 계산
       const stats = this.calculateDistanceStats(center, participants);
 
-      // 3. 주변 지하철역 검색
+      // 4. 주변 지하철역 검색
       const nearbyStations = this.findOptimalStations(center, options);
 
-      // 4. 응답 구성
+      // 5. 응답 구성
       const response: MeetingPointResponse = {
-        center,
+        center: centerWithDisplayName,
         nearbyStations,
         participants,
         stats: {
@@ -253,7 +261,7 @@ export class MeetingPointService {
       };
 
       logger.info('중간지점 계산 완료', {
-        center,
+        center: centerWithDisplayName,
         stationCount: nearbyStations.length,
         stats: response.stats
       });

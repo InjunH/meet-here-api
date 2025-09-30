@@ -50,6 +50,7 @@ export interface MeetingCenter {
   lat: number;            // 중심점 위도
   lng: number;            // 중심점 경도
   address?: string;       // 중심점 주소 (역계산)
+  displayName?: string;   // 간단한 위치명 (예: "명동 근처")
 }
 
 // 중간지점 계산 응답

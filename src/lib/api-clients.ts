@@ -240,6 +240,52 @@ export async function checkApiClientsHealth(): Promise<{
   };
 }
 
+/**
+ * 역지오코딩으로 좌표에서 displayName 추출
+ * @param lat 위도
+ * @param lng 경도
+ * @returns displayName (예: "역삼동 근처")
+ */
+export async function getDisplayNameFromCoords(lat: number, lng: number): Promise<string> {
+  try {
+    const coords = `${lng},${lat}`;
+    const response = await naverCloudClient.reverseGeocode(coords, {
+      orders: 'roadaddr,addr',
+      output: 'json'
+    });
+
+    const results = response.data?.results;
+    if (!results || results.length === 0) {
+      logger.warn('역지오코딩 결과 없음', { lat, lng });
+      return `(${lat.toFixed(4)}, ${lng.toFixed(4)}) 근처`;
+    }
+
+    // 주소 또는 도로명 주소 결과 찾기
+    const addrResult = results.find((r: any) => r.name === 'addr');
+    const roadAddrResult = results.find((r: any) => r.name === 'roadaddr');
+
+    // 지역 정보 추출
+    const area1 = addrResult?.region.area1?.name || roadAddrResult?.region.area1?.name || "";
+    const area2 = addrResult?.region.area2?.name || roadAddrResult?.region.area2?.name || "";
+    const area3 = addrResult?.region.area3?.name || roadAddrResult?.region.area3?.name || "";
+
+    // displayName 생성 (우선순위: area3 > area2 > area1)
+    if (area3 && area3.trim()) return `${area3} 근처`;
+    if (area2 && area2.trim()) return `${area2} 근처`;
+    if (area1 && area1.trim()) return `${area1} 근처`;
+
+    return "위치 확인 중";
+  } catch (error) {
+    logger.error('역지오코딩 실패 - 폴백 사용', {
+      lat,
+      lng,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    // 폴백: 좌표 표시
+    return `(${lat.toFixed(4)}, ${lng.toFixed(4)}) 근처`;
+  }
+}
+
 // 클라이언트 팩토리
 export const createApiClient = {
   naverCloud: () => new NaverCloudClient(),
