@@ -327,19 +327,29 @@ router.post("/reverse-geocode", async (req, res) => {
     };
 
     // 행정구역 정보
-    const district = [
-      addrResult?.region.area1?.name || roadAddrResult?.region.area1?.name, // 시/도
-      addrResult?.region.area2?.name || roadAddrResult?.region.area2?.name, // 시/군/구
-      addrResult?.region.area3?.name || roadAddrResult?.region.area3?.name, // 읍/면/동
-    ]
+    const area1 = addrResult?.region.area1?.name || roadAddrResult?.region.area1?.name || "";
+    const area2 = addrResult?.region.area2?.name || roadAddrResult?.region.area2?.name || "";
+    const area3 = addrResult?.region.area3?.name || roadAddrResult?.region.area3?.name || "";
+
+    const district = [area1, area2, area3]
       .filter(Boolean)
       .join(" ");
+
+    // displayName 생성 (간단한 위치명)
+    const createDisplayName = (a1: string, a2: string, a3: string): string => {
+      if (a3 && a3.trim()) return `${a3} 근처`;
+      if (a2 && a2.trim()) return `${a2} 근처`;
+      if (a1 && a1.trim()) return `${a1} 근처`;
+      return "위치 확인 중";
+    };
 
     // 응답 데이터 구성
     const result = {
       address: addrResult ? buildAddress(addrResult) : "",
       roadAddress: roadAddrResult ? buildAddress(roadAddrResult) : "",
       district,
+      displayName: createDisplayName(area1, area2, area3),
+      coordinates: { lat, lng },
     };
 
     logger.info("Reverse geocoding successful", {

@@ -2,6 +2,10 @@
  * @fileoverview 중앙집중화된 환경변수 설정 관리
  */
 
+// Load environment variables first
+import { config as loadEnv } from 'dotenv';
+loadEnv();
+
 import { configSchema, validateRequiredEnvVars, type Config } from './schema.js';
 
 /**
