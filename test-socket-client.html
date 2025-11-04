@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeetHere Socket.io 테스트</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .header {
+      background: #667eea;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .status {
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .status.connected {
+      background: #10b981;
+      color: white;
+    }
+
+    .status.disconnected {
+      background: #ef4444;
+      color: white;
+    }
+
+    .content {
+      padding: 20px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f3f4f6;
+      border-radius: 8px;
+    }
+
+    .section h2 {
+      margin-bottom: 15px;
+      color: #1f2937;
+      font-size: 18px;
+    }
+
+    .input-group {
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #4b5563;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+      width: 100%;
+    }
+
+    button:hover {
+      background: #5568d3;
+    }
+
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .logs {
+      background: #1f2937;
+      color: #10b981;
+      padding: 15px;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .log-entry {
+      margin-bottom: 5px;
+    }
+
+    .log-time {
+      color: #6b7280;
+    }
+
+    .log-event {
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    .log-data {
+      color: #10b981;
+    }
+
+    .participants {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .participant {
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .locations {
+      margin-top: 10px;
+    }
+
+    .location-item {
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .location-name {
+      font-weight: 600;
+      color: #1f2937;
+      margin-bottom: 4px;
+    }
+
+    .location-address {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .center-point {
+      background: #fef3c7;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎯 MeetHere Socket.io 테스트</h1>
+      <p style="margin-top: 10px; opacity: 0.9;">실시간 미팅 & 위치 공유 프로토타입</p>
+    </div>
+
+    <div id="status" class="status disconnected">
+      🔴 연결 끊김
+    </div>
+
+    <div class="content">
+      <!-- 미팅 참가 -->
+      <div class="section">
+        <h2>1️⃣ 미팅 참가</h2>
+
+        <!-- 빠른 미팅 코드 선택 -->
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+          <button onclick="setMeetingCode('TEST01')" style="flex: 1; background: #6366f1; font-size: 13px;">🎯 TEST01</button>
+          <button onclick="setMeetingCode('DEMO01')" style="flex: 1; background: #8b5cf6; font-size: 13px;">🎯 DEMO01</button>
+          <button onclick="setMeetingCode('MEET01')" style="flex: 1; background: #ec4899; font-size: 13px;">🎯 MEET01</button>
+        </div>
+
+        <div class="input-group">
+          <label>미팅 코드 (6자리)</label>
+          <input type="text" id="meetingCode" placeholder="예: ABC123" maxlength="6" value="TEST01">
+        </div>
+        <div class="input-group">
+          <label>사용자 ID</label>
+          <input type="text" id="userId" placeholder="예: user123" value="">
+        </div>
+        <div class="input-group">
+          <label>이름</label>
+          <input type="text" id="userName" placeholder="예: 홍길동" value="">
+        </div>
+        <button onclick="joinMeeting()" id="joinBtn">미팅 참가하기</button>
+      </div>
+
+      <!-- 위치 추가 -->
+      <div class="section">
+        <h2>2️⃣ 위치 추가</h2>
+
+        <!-- 빠른 샘플 추가 버튼 -->
+        <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button onclick="useSample('gangnam')" style="flex: 1; min-width: 120px; background: #10b981;">📍 강남역</button>
+          <button onclick="useSample('sinchon')" style="flex: 1; min-width: 120px; background: #3b82f6;">📍 신촌역</button>
+          <button onclick="useSample('hongdae')" style="flex: 1; min-width: 120px; background: #8b5cf6;">📍 홍대입구역</button>
+          <button onclick="useSample('jamsil')" style="flex: 1; min-width: 120px; background: #f59e0b;">📍 잠실역</button>
+        </div>
+
+        <div class="input-group">
+          <label>장소 이름</label>
+          <input type="text" id="locationName" placeholder="예: 강남역" value="강남역">
+        </div>
+        <div class="input-group">
+          <label>주소</label>
+          <input type="text" id="locationAddress" placeholder="예: 서울특별시 강남구" value="서울특별시 강남구 강남대로 396">
+        </div>
+        <div class="input-group">
+          <label>위도 (Latitude)</label>
+          <input type="number" step="0.000001" id="locationLat" placeholder="예: 37.4979" value="37.497952">
+        </div>
+        <div class="input-group">
+          <label>경도 (Longitude)</label>
+          <input type="number" step="0.000001" id="locationLng" placeholder="예: 127.0276" value="127.027619">
+        </div>
+        <button onclick="addLocation()" id="addLocationBtn" disabled>위치 추가하기</button>
+
+        <!-- 빠른 테스트 -->
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 2px dashed #d1d5db;">
+          <div style="margin-bottom: 10px; font-weight: 600; color: #1f2937;">⚡ 빠른 테스트</div>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="addAllSamples()" style="flex: 1; background: #ef4444;" id="addAllBtn" disabled>
+              🚀 4개 위치 한번에 추가
+            </button>
+            <button onclick="clearLocations()" style="flex: 1; background: #6b7280;">
+              🗑️ 초기화
+            </button>
+          </div>
+          <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+            💡 팁: 실시간 동기화 테스트를 위해 브라우저 창을 2개 열어보세요!
+          </div>
+        </div>
+      </div>
+
+      <!-- 현재 상태 -->
+      <div class="section">
+        <h2>3️⃣ 현재 미팅 상태</h2>
+        <div>
+          <strong>참가자:</strong>
+          <div class="participants" id="participants">
+            <span style="color: #9ca3af;">아직 참가자가 없습니다</span>
+          </div>
+        </div>
+        <div style="margin-top: 20px;">
+          <strong>위치 목록:</strong>
+          <div class="locations" id="locations">
+            <span style="color: #9ca3af;">아직 위치가 없습니다</span>
+          </div>
+        </div>
+        <div id="centerPointDiv" style="display: none;">
+          <strong>중간지점:</strong>
+          <div class="center-point" id="centerPoint"></div>
+        </div>
+      </div>
+
+      <!-- 이벤트 로그 -->
+      <div class="section">
+        <h2>4️⃣ 이벤트 로그</h2>
+        <div class="logs" id="logs">
+          <div class="log-entry">
+            <span class="log-time">[대기중]</span>
+            <span class="log-data">서버 연결 대기 중...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    let socket = null;
+    let currentMeetingCode = null;
+
+    // 샘플 위치 데이터
+    const sampleLocations = {
+      gangnam: {
+        name: '강남역',
+        address: '서울특별시 강남구 강남대로 396',
+        lat: 37.497952,
+        lng: 127.027619
+      },
+      sinchon: {
+        name: '신촌역',
+        address: '서울특별시 서대문구 신촌역로 90',
+        lat: 37.555946,
+        lng: 126.936893
+      },
+      hongdae: {
+        name: '홍대입구역',
+        address: '서울특별시 마포구 양화로 160',
+        lat: 37.557192,
+        lng: 126.925381
+      },
+      jamsil: {
+        name: '잠실역',
+        address: '서울특별시 송파구 올림픽로 지하 265',
+        lat: 37.513294,
+        lng: 127.100388
+      }
+    };
+
+    // 미팅 코드 설정
+    function setMeetingCode(code) {
+      document.getElementById('meetingCode').value = code;
+      log('INFO', `미팅 코드 ${code} 선택됨`);
+    }
+
+    // 샘플 데이터 사용
+    function useSample(key) {
+      const sample = sampleLocations[key];
+      if (!sample) return;
+
+      document.getElementById('locationName').value = sample.name;
+      document.getElementById('locationAddress').value = sample.address;
+      document.getElementById('locationLat').value = sample.lat;
+      document.getElementById('locationLng').value = sample.lng;
+
+      log('SAMPLE', `${sample.name} 샘플 데이터 로드됨`);
+    }
+
+    // 모든 샘플 위치 한번에 추가
+    async function addAllSamples() {
+      if (!currentMeetingCode) {
+        alert('먼저 미팅에 참가해주세요!');
+        return;
+      }
+
+      const confirmAdd = confirm('강남역, 신촌역, 홍대입구역, 잠실역 4개 위치를 추가하시겠습니까?');
+      if (!confirmAdd) return;
+
+      log('INFO', '🚀 4개 샘플 위치 일괄 추가 시작...');
+
+      // 순차적으로 추가 (0.5초 간격)
+      for (const [key, sample] of Object.entries(sampleLocations)) {
+        socket.emit('location:add', {
+          meetingCode: currentMeetingCode,
+          location: {
+            name: sample.name,
+            address: sample.address,
+            lat: sample.lat,
+            lng: sample.lng
+          }
+        });
+        log('REQUEST', `${sample.name} 추가됨`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      log('SUCCESS', '✅ 모든 샘플 위치 추가 완료!');
+    }
+
+    // 초기화
+    function clearLocations() {
+      if (confirm('현재 미팅 데이터는 메모리에 저장되어 있습니다.\n페이지를 새로고침하면 초기화됩니다.')) {
+        window.location.reload();
+      }
+    }
+
+    // 랜덤 사용자 ID 생성
+    const randomUserId = 'user_' + Math.random().toString(36).substr(2, 9);
+    document.getElementById('userId').value = randomUserId;
+    document.getElementById('userName').value = '사용자' + Math.floor(Math.random() * 100);
+
+    // Socket.io 연결
+    function connectSocket() {
+      socket = io('http://localhost:8080/meetings', {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+      });
+
+      socket.on('connect', () => {
+        log('CONNECTED', `Socket ID: ${socket.id}`);
+        updateStatus(true);
+      });
+
+      socket.on('disconnect', (reason) => {
+        log('DISCONNECTED', `Reason: ${reason}`);
+        updateStatus(false);
+        document.getElementById('addLocationBtn').disabled = true;
+      });
+
+      socket.on('meeting:state', (data) => {
+        log('MEETING_STATE', JSON.stringify(data, null, 2));
+        renderMeetingState(data);
+      });
+
+      socket.on('meeting:joined', (data) => {
+        log('PARTICIPANT_JOINED', `${data.name} (${data.userId}) joined`);
+      });
+
+      socket.on('meeting:left', (data) => {
+        log('PARTICIPANT_LEFT', `${data.name} (${data.userId}) left`);
+      });
+
+      socket.on('location:added', (data) => {
+        log('LOCATION_ADDED', JSON.stringify(data, null, 2));
+        // 자동으로 상태 요청 (임시 - 실제는 서버가 state 보내줌)
+      });
+
+      socket.on('error', (data) => {
+        log('ERROR', `${data.code}: ${data.message}`, true);
+        alert(`오류: ${data.message}`);
+      });
+    }
+
+    // 미팅 참가
+    function joinMeeting() {
+      const meetingCode = document.getElementById('meetingCode').value.toUpperCase();
+      const userId = document.getElementById('userId').value;
+      const userName = document.getElementById('userName').value;
+
+      if (!meetingCode || meetingCode.length !== 6) {
+        alert('미팅 코드는 6자리여야 합니다!');
+        return;
+      }
+
+      if (!userId || !userName) {
+        alert('사용자 ID와 이름을 입력해주세요!');
+        return;
+      }
+
+      currentMeetingCode = meetingCode;
+      socket.emit('meeting:join', {
+        meetingCode,
+        userId,
+        name: userName,
+      });
+
+      document.getElementById('addLocationBtn').disabled = false;
+      document.getElementById('addAllBtn').disabled = false;
+      log('REQUEST', `미팅 참가 요청: ${meetingCode}`);
+    }
+
+    // 위치 추가
+    function addLocation() {
+      if (!currentMeetingCode) {
+        alert('먼저 미팅에 참가해주세요!');
+        return;
+      }
+
+      const name = document.getElementById('locationName').value;
+      const address = document.getElementById('locationAddress').value;
+      const lat = parseFloat(document.getElementById('locationLat').value);
+      const lng = parseFloat(document.getElementById('locationLng').value);
+
+      if (!name || !address || isNaN(lat) || isNaN(lng)) {
+        alert('모든 위치 정보를 입력해주세요!');
+        return;
+      }
+
+      socket.emit('location:add', {
+        meetingCode: currentMeetingCode,
+        location: { name, address, lat, lng },
+      });
+
+      log('REQUEST', `위치 추가 요청: ${name}`);
+
+      // 입력 필드 초기화
+      document.getElementById('locationName').value = '';
+      document.getElementById('locationAddress').value = '';
+    }
+
+    // 미팅 상태 렌더링
+    function renderMeetingState(state) {
+      // 참가자 렌더링
+      const participantsDiv = document.getElementById('participants');
+      if (state.participants && state.participants.length > 0) {
+        participantsDiv.innerHTML = state.participants
+          .map(p => `<div class="participant">${p.name} (${p.userId})</div>`)
+          .join('');
+      }
+
+      // 위치 렌더링
+      const locationsDiv = document.getElementById('locations');
+      if (state.locations && state.locations.length > 0) {
+        locationsDiv.innerHTML = state.locations
+          .map(loc => `
+            <div class="location-item">
+              <div class="location-name">📍 ${loc.name}</div>
+              <div class="location-address">${loc.address}</div>
+              <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
+                위도: ${loc.lat}, 경도: ${loc.lng}
+              </div>
+            </div>
+          `)
+          .join('');
+      }
+
+      // 중간지점 렌더링
+      if (state.centerPoint) {
+        document.getElementById('centerPointDiv').style.display = 'block';
+        document.getElementById('centerPoint').innerHTML = `
+          🎯 위도: ${state.centerPoint.lat}, 경도: ${state.centerPoint.lng}
+        `;
+      }
+    }
+
+    // 상태 업데이트
+    function updateStatus(connected) {
+      const statusDiv = document.getElementById('status');
+      if (connected) {
+        statusDiv.className = 'status connected';
+        statusDiv.innerHTML = '🟢 서버 연결됨';
+      } else {
+        statusDiv.className = 'status disconnected';
+        statusDiv.innerHTML = '🔴 연결 끊김';
+      }
+    }
+
+    // 로그 추가
+    function log(event, data, isError = false) {
+      const logsDiv = document.getElementById('logs');
+      const time = new Date().toLocaleTimeString('ko-KR');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+
+      // 이벤트 타입별 색상
+      let eventColor = '#fbbf24'; // 기본 노란색
+      let dataColor = '#10b981';  // 기본 초록색
+
+      if (isError) {
+        dataColor = '#ef4444'; // 빨간색
+      } else if (event === 'CONNECTED') {
+        eventColor = '#10b981';
+        dataColor = '#10b981';
+      } else if (event === 'SUCCESS') {
+        eventColor = '#10b981';
+        dataColor = '#10b981';
+      } else if (event === 'INFO') {
+        eventColor = '#3b82f6';
+        dataColor = '#3b82f6';
+      } else if (event === 'SAMPLE') {
+        eventColor = '#8b5cf6';
+        dataColor = '#8b5cf6';
+      }
+
+      entry.innerHTML = `
+        <span class="log-time">[${time}]</span>
+        <span class="log-event" style="color: ${eventColor};">${event}</span>
+        <span class="log-data" style="color: ${dataColor};">${data}</span>
+      `;
+      logsDiv.appendChild(entry);
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+
+    // 페이지 로드 시 연결
+    window.onload = () => {
+      connectSocket();
+    };
+  </script>
+</body>
+</html>

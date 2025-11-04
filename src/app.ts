@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 config();
 
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -22,6 +23,8 @@ import { naverRouter } from '@/routes/naver.js';
 import { meetingPointRouter } from '@/routes/meeting-point.js';
 import { logger } from '@/utils/logger.js';
 import { serverConfig, corsConfig, logConfigInfo } from '@/config/index.js';
+import { setupSocketServer } from '@/socket/index.js';
+import { setupMeetingHandlers } from '@/socket/handlers/meetingHandler.js';
 
 const app = express();
 
@@ -138,12 +141,36 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
+// Create HTTP server
+const httpServer = createServer(app);
+
+// Setup Socket.io server
+const { io, meetingNamespace } = setupSocketServer(httpServer, corsOptions);
+
+// Setup Socket event handlers
+setupMeetingHandlers(meetingNamespace);
+
 // Start server
 if (!serverConfig.isTest) {
-  app.listen(serverConfig.port, () => {
+  logger.info(`🔧 Starting server on port ${serverConfig.port}...`);
+  logger.info(`🔧 isTest: ${serverConfig.isTest}, NODE_ENV: ${process.env.NODE_ENV}`);
+
+  httpServer.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`❌ Port ${serverConfig.port} is already in use`);
+    } else {
+      logger.error('❌ Server error:', error);
+    }
+    process.exit(1);
+  });
+
+  httpServer.listen(serverConfig.port, () => {
     logger.info(`🚀 MeetHere API Server running on port ${serverConfig.port}`);
+    logger.info('✅ Socket.io server initialized');
     logConfigInfo();
   });
+} else {
+  logger.info('⚠️  Test mode - server not started');
 }
 
 export default app;
