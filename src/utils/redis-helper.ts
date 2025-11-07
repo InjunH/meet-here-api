@@ -106,7 +106,7 @@ export class RedisSessionManager {
 
     try {
       const key = RedisKeys.session(sessionId);
-      await this.redis!.setex(key, SESSION_TTL, JSON.stringify(data));
+      await this.redis!.setEx(key, SESSION_TTL, JSON.stringify(data));
       logger.debug('Session cached in Redis', { sessionId });
     } catch (error) {
       logger.error('Failed to cache session in Redis', {
@@ -148,7 +148,7 @@ export class RedisSessionManager {
 
     try {
       const key = RedisKeys.participants(sessionId);
-      await this.redis!.hset(key, participantId, JSON.stringify(data));
+      await this.redis!.hSet(key, participantId, JSON.stringify(data));
       await this.redis!.expire(key, SESSION_TTL);
       logger.debug('Participant added to Redis', { sessionId, participantId });
     } catch (error) {
@@ -168,7 +168,7 @@ export class RedisSessionManager {
 
     try {
       const key = RedisKeys.participants(sessionId);
-      const data = await this.redis!.hgetall(key);
+      const data = await this.redis!.hGetAll(key);
 
       const participants: Record<string, RedisParticipantData> = {};
       for (const [id, json] of Object.entries(data)) {
@@ -197,7 +197,7 @@ export class RedisSessionManager {
 
     try {
       const key = RedisKeys.location(sessionId, participantId);
-      await this.redis!.setex(key, SESSION_TTL, JSON.stringify(location));
+      await this.redis!.setEx(key, SESSION_TTL, JSON.stringify(location));
       logger.debug('Location updated in Redis', { sessionId, participantId });
     } catch (error) {
       logger.error('Failed to update location in Redis', {

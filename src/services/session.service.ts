@@ -61,21 +61,36 @@ export class SessionService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24시간 후
 
+    // Redis에 캐시 (실시간 접근용)
+    const redisData: RedisSessionData = {
+      id: sessionId,
+      title: request.title,
+      hostName: request.hostName,
+      status: 'active',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
     try {
-      // Redis에 캐시 (실시간 접근용)
-      const redisData: RedisSessionData = {
-        id: sessionId,
-        title: request.title,
-        hostName: request.hostName,
-        status: 'active',
-        createdAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      };
-
       await redisSessionManager.setSession(sessionId, redisData);
+    } catch (error) {
+      logger.error('Failed to cache session in Redis', {
+        error: (error as Error).message,
+        sessionId,
+      });
+      // Redis 캐싱 실패는 치명적이므로 에러 throw
+      throw new AppError(
+        '세션 생성에 실패했습니다 (Redis 오류)',
+        500,
+        'SESSION_CREATE_ERROR',
+        true,
+        { request }
+      );
+    }
 
-      // PostgreSQL에 영구 저장 (DB 사용 가능한 경우만)
-      if (db) {
+    // PostgreSQL에 영구 저장 (DB 사용 가능한 경우만, 실패해도 계속 진행)
+    if (db) {
+      try {
         const dbData: NewSession = {
           id: sessionId,
           title: request.title,
@@ -86,38 +101,31 @@ export class SessionService {
 
         await db.insert(sessions).values(dbData);
         logger.info('Session saved to database', { sessionId });
-      } else {
-        logger.warn('Database not available - session only in Redis', { sessionId });
+      } catch (dbError) {
+        // DB 저장 실패는 로깅만 하고 계속 진행 (Redis가 Primary)
+        logger.warn('Failed to save session to database - continuing with Redis only', {
+          error: (dbError as Error).message,
+          sessionId,
+        });
       }
-
-      logger.info('Session created', {
-        sessionId,
-        title: request.title,
-        hostName: request.hostName,
-      });
-
-      return {
-        id: sessionId,
-        title: request.title,
-        hostName: request.hostName,
-        status: 'active',
-        createdAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-      };
-    } catch (error) {
-      logger.error('Failed to create session', {
-        error: (error as Error).message,
-        request,
-      });
-
-      throw new AppError(
-        '세션 생성에 실패했습니다',
-        500,
-        'SESSION_CREATE_ERROR',
-        true,
-        { request }
-      );
+    } else {
+      logger.warn('Database not available - session only in Redis', { sessionId });
     }
+
+    logger.info('Session created', {
+      sessionId,
+      title: request.title,
+      hostName: request.hostName,
+    });
+
+    return {
+      id: sessionId,
+      title: request.title,
+      hostName: request.hostName,
+      status: 'active',
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 
   /**
