@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-// import * as schema from '@client/schema.js'; // TODO: Implement schema import
+import * as schema from './schema.js';
 import { logger } from '@/utils/logger.js';
 
 // Database configuration
@@ -18,8 +18,8 @@ const client = connectionString ? postgres(connectionString, {
   prepare: false
 }) : null;
 
-// Create drizzle instance
-export const db = client ? drizzle(client) : null;
+// Create drizzle instance with schema
+export const db = client ? drizzle(client, { schema }) : null;
 
 // Test database connection
 export async function testDatabaseConnection(): Promise<boolean> {

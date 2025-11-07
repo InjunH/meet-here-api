@@ -21,7 +21,7 @@
       "@shared/*": ["../shared/*"],
       "@client/*": ["../meet_here_client/shared/*"]
     },
-    "types": ["node", "jest"],
+    "types": ["node", "jest", "swagger-ui-express"],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true
