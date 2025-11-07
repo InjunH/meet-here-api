@@ -87,6 +87,9 @@ export interface ClientToServerEvents {
   'meeting:join': (data: JoinMeetingData) => void;
   'meeting:leave': (data: LeaveMeetingData) => void;
   'location:add': (data: AddLocationData) => void;
+  // 새 API 이벤트
+  'session:join': (data: { sessionId: string; participantId: string }) => void;
+  'vote:cast': (data: CastVoteData) => void;
 }
 
 export interface ServerToClientEvents {
@@ -95,10 +98,59 @@ export interface ServerToClientEvents {
   'meeting:state': (data: MeetingStateData) => void;
   'location:added': (data: LocationAddedData) => void;
   'error': (data: ErrorData) => void;
+  // 새 API 이벤트
+  'vote:casted': (data: VoteCastedData) => void;
+  'vote:status': (data: VoteStatusData) => void;
+  'participant:location:updated': (data: ParticipantLocationUpdatedData) => void;
+  'session:status:changed': (data: SessionStatusChangedData) => void;
 }
 
 export interface SocketData {
   userId?: string;
   meetingCode?: string;
   userName?: string;
+  sessionId?: string;
+  participantId?: string;
+}
+
+// ===== 투표 관련 이벤트 (새 API용) =====
+
+export interface CastVoteData {
+  sessionId: string;
+  participantId: string;
+  placeId: string;
+}
+
+export interface VoteCastedData {
+  sessionId: string;
+  participantId: string;
+  placeId: string;
+  timestamp: string;
+}
+
+export interface VoteStatusData {
+  sessionId: string;
+  totalVotes: number;
+  results: Array<{
+    placeId: string;
+    voteCount: number;
+    voters: string[];
+  }>;
+}
+
+export interface ParticipantLocationUpdatedData {
+  sessionId: string;
+  participantId: string;
+  location: {
+    lat: string;
+    lng: string;
+    displayName?: string;
+  };
+  timestamp: string;
+}
+
+export interface SessionStatusChangedData {
+  sessionId: string;
+  status: 'active' | 'voting' | 'completed' | 'cancelled';
+  timestamp: string;
 }

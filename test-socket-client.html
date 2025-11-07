@@ -311,7 +311,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script>
     let socket = null;
     let currentMeetingCode = null;
@@ -407,9 +407,13 @@
 
     // Socket.io 연결
     function connectSocket() {
-      socket = io('http://localhost:8080/meetings', {
-        transports: ['websocket', 'polling'],
+      socket = io('http://localhost:8090/meetings', {
+        path: '/socket.io/',
+        // 폴링으로 시작 후 WebSocket 업그레이드 (기본 동작)
+        transports: ['polling', 'websocket'],
         reconnection: true,
+        withCredentials: true,
+        timeout: 15000
       });
 
       socket.on('connect', () => {
@@ -421,6 +425,22 @@
         log('DISCONNECTED', `Reason: ${reason}`);
         updateStatus(false);
         document.getElementById('addLocationBtn').disabled = true;
+      });
+
+      socket.io.on('reconnect_attempt', (n) => {
+        log('INFO', `Reconnecting... attempt #${n}`);
+      });
+
+      socket.io.on('reconnect_error', (err) => {
+        log('ERROR', `Reconnect error: ${err?.message || err}`, true);
+      });
+
+      socket.io.on('reconnect_failed', () => {
+        log('ERROR', 'Reconnect failed', true);
+      });
+
+      socket.on('connect_error', (err) => {
+        log('ERROR', `Connect error: ${err?.message || err}`, true);
       });
 
       socket.on('meeting:state', (data) => {

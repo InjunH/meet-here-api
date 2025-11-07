@@ -25,8 +25,9 @@ const limitFunction = (req: Request): number => {
 
 // Skip rate limiting for certain routes
 const skipFunction = (req: Request): boolean => {
-  const skipRoutes = ['/health', '/metrics'];
-  return skipRoutes.some(route => req.path.startsWith(route));
+  const url = req.originalUrl || req.url || '';
+  if (url.startsWith('/socket.io')) { return true; }
+  return ['/health', '/metrics'].some(route => (req.path || '').startsWith(route));
 };
 
 // Main rate limiter

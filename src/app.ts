@@ -21,10 +21,15 @@ import { votingsRouter } from '@/routes/votings.js';
 import { kakaoRouter } from '@/routes/kakao.js';
 import { naverRouter } from '@/routes/naver.js';
 import { meetingPointRouter } from '@/routes/meeting-point.js';
+import { sessionsRouter } from '@/routes/sessions.js';
+import { participantsRouter } from '@/routes/participants.js';
+import { votesRouter } from '@/routes/votes.js';
 import { logger } from '@/utils/logger.js';
 import { serverConfig, corsConfig, logConfigInfo } from '@/config/index.js';
 import { setupSocketServer } from '@/socket/index.js';
 import { setupMeetingHandlers } from '@/socket/handlers/meetingHandler.js';
+import { initializeSocketEmitter } from '@/socket/emitter.js';
+import { initializeRedis } from '@/utils/redis.js';
 
 const app = express();
 
@@ -36,7 +41,14 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://dapi.kakao.com', 'https://naveropenapi.apigw.ntruss.com']
+      // Allow WebSocket connections alongside API calls
+      connectSrc: [
+        "'self'",
+        'ws:',
+        'wss:',
+        'https://dapi.kakao.com',
+        'https://naveropenapi.apigw.ntruss.com'
+      ]
     }
   },
   crossOriginEmbedderPolicy: false
@@ -47,17 +59,22 @@ const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = corsConfig.origins;
 
-    // Allow requests with no origin (mobile apps, etc.)
-    if (!origin) {return callback(null, true);}
+    // Allow requests with no origin (mobile apps, curl, file:// → 'null')
+    if (!origin || origin === 'null') { return callback(null, true); }
 
     // Check if origin is allowed
-    if (allowedOrigins.includes(origin) ||
-        allowedOrigins.some(allowed => {
-          if (allowed.includes('localhost')) {
-            return new RegExp('^http://localhost:\\d+$').test(origin);
-          }
-          return false;
-        })) {
+    if (
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.some(allowed => {
+        if (allowed.includes('localhost')) {
+          return new RegExp('^http://localhost:\\d+$').test(origin);
+        }
+        return false;
+      }) ||
+      /^http:\/\/127\.0\.0\.1:\\d+$/.test(origin) ||
+      // IPv6 loopback like http://[::1]:8081
+      /^http:\/\/(?=\[)(\[[0-9a-fA-F:]+\]):\\d+$/.test(origin)
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -127,6 +144,9 @@ app.use('/api/v1/votings', votingsRouter);
 app.use('/api/v1/kakao', kakaoRouter);
 app.use('/api/v1/naver', naverRouter);
 app.use('/api/v1/meeting-point', meetingPointRouter);
+app.use('/api/v1/sessions', sessionsRouter);
+app.use('/api/v1/participants', participantsRouter);
+app.use('/api/v1/votes', votesRouter);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -141,11 +161,14 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-// Create HTTP server
+// Create HTTP server with Express app (standard Socket.IO pattern)
 const httpServer = createServer(app);
 
 // Setup Socket.io server
 const { io, meetingNamespace } = setupSocketServer(httpServer, corsOptions);
+
+// Initialize Socket emitter for REST API integration
+initializeSocketEmitter(meetingNamespace);
 
 // Setup Socket event handlers
 setupMeetingHandlers(meetingNamespace);
@@ -164,10 +187,20 @@ if (!serverConfig.isTest) {
     process.exit(1);
   });
 
-  httpServer.listen(serverConfig.port, () => {
-    logger.info(`🚀 MeetHere API Server running on port ${serverConfig.port}`);
-    logger.info('✅ Socket.io server initialized');
-    logConfigInfo();
+  // Initialize Redis before starting server
+  initializeRedis().then(() => {
+    httpServer.listen(serverConfig.port, () => {
+      logger.info(`🚀 MeetHere API Server running on port ${serverConfig.port}`);
+      logger.info('✅ Socket.io server initialized');
+      logConfigInfo();
+    });
+  }).catch(error => {
+    logger.error('Failed to initialize Redis, starting server anyway:', error);
+    httpServer.listen(serverConfig.port, () => {
+      logger.info(`🚀 MeetHere API Server running on port ${serverConfig.port} (Redis unavailable)`);
+      logger.info('✅ Socket.io server initialized');
+      logConfigInfo();
+    });
   });
 } else {
   logger.info('⚠️  Test mode - server not started');

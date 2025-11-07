@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler, createError } from '@/middleware/errorHandler.js';
 import { kakaoApiLimiter } from '@/middleware/rateLimiter.js';
 import { logger } from '@/utils/logger.js';
+import { placeSearchService } from '@/services/place-search.service.js';
 
 const router = Router();
 
@@ -188,38 +189,24 @@ router.get('/search', kakaoApiLimiter, asyncHandler(async (req: Request, res: Re
       limit: query.limit
     });
 
-    // TODO: Implement actual Kakao Places API search
-    // const places = await searchNearbyPlaces(query);
-
-    // Mock response for now
-    const mockPlaces: Place[] = generateMockPlaces(query);
-
-    const response: SearchPlacesResponse = {
-      places: mockPlaces,
-      pagination: {
-        total: mockPlaces.length,
-        page: 1,
-        limit: query.limit,
-        hasMore: false
-      },
-      searchInfo: {
-        center: {
-          lat: query.lat,
-          lng: query.lng
-        },
-        radius: query.radius,
-        category: query.category
-      }
-    };
+    // 실제 카카오 API를 통한 장소 검색
+    const result = await placeSearchService.searchNearbyPlaces({
+      lat: query.lat,
+      lng: query.lng,
+      category: query.category,
+      radius: query.radius,
+      limit: query.limit
+    });
 
     logger.info('Places search completed', {
-      resultCount: mockPlaces.length,
+      resultCount: result.places.length,
+      total: result.pagination.total,
       category: query.category
     });
 
     res.json({
       success: true,
-      data: response,
+      data: result,
       message: 'Places retrieved successfully',
       timestamp: new Date().toISOString()
     });
@@ -377,38 +364,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
  */
 // GET /api/v1/places/categories - Get available place categories
 router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
-  const categories = [
-    {
-      code: 'CAFE',
-      name: '카페',
-      description: '커피전문점, 카페, 디저트전문점',
-      icon: '☕'
-    },
-    {
-      code: 'RESTAURANT',
-      name: '음식점',
-      description: '한식, 중식, 일식, 양식, 기타음식',
-      icon: '🍽️'
-    },
-    {
-      code: 'BAR',
-      name: '술집',
-      description: '펑, 비어바, 노래방, 당구장',
-      icon: '🍻'
-    },
-    {
-      code: 'CULTURE',
-      name: '문화시설',
-      description: '영화관, 공연장, 박물관, 도서관',
-      icon: '🎭'
-    },
-    {
-      code: 'SHOPPING',
-      name: '쇼핑',
-      description: '백화점, 대형마트, 아울렛, 전자상가',
-      icon: '🛍️'
-    }
-  ];
+  const categories = placeSearchService.getAvailableCategories();
 
   res.json({
     success: true,
@@ -417,38 +373,5 @@ router.get('/categories', asyncHandler(async (req: Request, res: Response) => {
     timestamp: new Date().toISOString()
   });
 }));
-
-// Utility functions
-function generateMockPlaces(query: any): Place[] {
-  const categories = {
-    CAFE: { name: '카페', places: ['스타벅스', '투썸플레이스', '이디야 커피', '빠사바나', '커피빈'] },
-    RESTAURANT: { name: '음식점', places: ['매둥국집', '이탈리아너', '일본집', '중국집', '한식당'] },
-    BAR: { name: '술집', places: ['노래방', '맥주집', '와인바', '당구장', '펁'] },
-    CULTURE: { name: '문화시설', places: ['영화관', '공연장', '박물관', '도서관', '미술관'] },
-    SHOPPING: { name: '쇼핑', places: ['백화점', '마트', '아울렛', '전자상가', '부티크'] }
-  };
-
-  const selectedCategory = query.category || 'CAFE';
-  const categoryInfo = categories[selectedCategory as keyof typeof categories];
-
-  return categoryInfo.places.map((name, index) => ({
-    id: `place_${selectedCategory.toLowerCase()}_${index + 1}`,
-    kakaoPlaceId: `${26853371 + index}`,
-    name: `${name} 신촌점`,
-    category: {
-      code: selectedCategory,
-      name: categoryInfo.name
-    },
-    address: `서울 서대문구 신촌로 ${74 + index * 10}`,
-    coordinates: {
-      lat: query.lat + (Math.random() - 0.5) * 0.01,
-      lng: query.lng + (Math.random() - 0.5) * 0.01
-    },
-    distance: Math.round((Math.random() * query.radius * 0.8) + 50),
-    phone: `02-${1522 + index}-${3000 + index}`,
-    rating: Number((3.5 + Math.random() * 1.5).toFixed(1)),
-    reviewCount: Math.floor(Math.random() * 500) + 50
-  })).slice(0, query.limit);
-}
 
 export { router as placesRouter };

@@ -18,10 +18,20 @@ export function setupSocketServer(httpServer: HttpServer, corsOptions: CorsOptio
   // Socket.io 서버 생성
   const io = new Server(httpServer, {
     cors: corsOptions,
-    path: '/socket.io',
-    transports: ['websocket', 'polling'],
+    path: '/socket.io/',
+    // 폴링 허용 + 업그레이드 경로로 안정 연결 보장
+    transports: ['polling', 'websocket'],
     pingTimeout: 60000,
     pingInterval: 25000,
+  });
+
+  // Surface handshake/transport errors for easier debugging
+  io.engine.on('connection_error', (error: any) => {
+    logger.error('Socket.io engine connection error', {
+      code: error?.code,
+      message: error?.message,
+      context: error?.context
+    });
   });
 
   // Redis Adapter 설정 (다중 서버 지원)
@@ -51,6 +61,13 @@ export function setupSocketServer(httpServer: HttpServer, corsOptions: CorsOptio
     logger.info('Client connected to /meetings namespace', {
       socketId: socket.id,
       transport: socket.conn.transport.name
+    });
+
+    socket.on('error', (err) => {
+      logger.error('Socket error on /meetings', {
+        socketId: socket.id,
+        error: (err as Error)?.message || err
+      });
     });
 
     socket.on('disconnect', (reason) => {

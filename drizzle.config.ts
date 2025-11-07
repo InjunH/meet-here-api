@@ -4,11 +4,11 @@ import { config } from 'dotenv';
 config({ path: '.env' });
 
 export default {
-  schema: '../meet_here_client/shared/schema.ts',
+  schema: './src/db/schema.ts',
   out: './drizzle',
-  driver: 'pg',
+  dialect: 'postgresql',
   dbCredentials: {
-    connectionString: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL!,
   },
   verbose: true,
   strict: true,
